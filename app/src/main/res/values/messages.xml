@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="print_unavailable">Bill saved. Printing unavailable.\nबिल सुरक्षित छ। प्रिन्ट उपलब्ध छैन।</string>
+    <string name="favourite_save_failed">Could not save item.\nसामान सुरक्षित गर्न सकिएन।</string>
+    <string name="shop_save_failed">Could not save shop details.\nपसलको विवरण सुरक्षित गर्न सकिएन।</string>
+    <string name="photo_save_failed">Could not save photo.\nतस्बिर सुरक्षित गर्न सकिएन।</string>
+    <string name="bill_save_failed">Could not save bill. Try again.\nबिल सुरक्षित गर्न सकिएन। फेरि प्रयास गर्नुहोस्।</string>
+    <string name="bill_open_failed">Could not open bill.\nबिल खोल्न सकिएन।</string>
+</resources>
