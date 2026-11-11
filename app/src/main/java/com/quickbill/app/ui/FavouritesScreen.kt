@@ -43,7 +43,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
-import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.font.FontWeight
@@ -64,23 +63,15 @@ internal fun FavouritesScreen(
     canAddToBill: Boolean,
     onAddItem: () -> Unit,
     onTap: (FavouriteItem) -> Unit,
-    onManagePhoto: (FavouriteItem) -> Unit,
+    onManageFavourite: (FavouriteItem) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val quantities = remember(lines) { lines.associate { it.favouriteId to it.quantity } }
     Column(modifier) {
         Row(
             modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            horizontalArrangement = Arrangement.End,
         ) {
-            BilingualLabel(
-                R.string.favourites,
-                R.string.favourites_ne,
-                modifier = Modifier.weight(1f).semantics { heading() },
-                mainStyle = MaterialTheme.typography.titleLarge,
-                secondaryStyle = MaterialTheme.typography.bodySmall,
-            )
             FilledTonalButton(
                 onClick = onAddItem,
                 enabled = !isLoading,
@@ -116,7 +107,7 @@ internal fun FavouritesScreen(
                         quantity = quantities[item.id] ?: 0,
                         enabled = canAddToBill,
                         onClick = { onTap(item) },
-                        onLongClick = { onManagePhoto(item) },
+                        onLongClick = { onManageFavourite(item) },
                     )
                 }
             }
@@ -148,7 +139,7 @@ private fun FavouriteTile(
                 .combinedClickable(
                     enabled = enabled,
                     onClickLabel = stringResource(R.string.add_to_bill),
-                    onLongClickLabel = stringResource(R.string.manage_photo),
+                    onLongClickLabel = stringResource(R.string.manage_favourite),
                     role = Role.Button,
                     onLongClick = onLongClick,
                     onClick = onClick,

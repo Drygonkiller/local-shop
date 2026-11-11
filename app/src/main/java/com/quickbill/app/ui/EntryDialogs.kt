@@ -11,7 +11,6 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -32,17 +31,23 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.quickbill.app.R
+import com.quickbill.app.data.FavouriteItem
 import com.quickbill.app.data.ShopDetails
 import com.quickbill.app.data.normalizePan
 import com.quickbill.app.data.parseNpr
+import java.math.BigDecimal
 
 @Composable
-internal fun AddItemDialog(
+internal fun ItemEditorDialog(
+    item: FavouriteItem? = null,
     onDismiss: () -> Unit,
-    onAdd: (String, Long, (Boolean) -> Unit) -> Unit,
+    onSave: (String, Long, (Boolean) -> Unit) -> Unit,
 ) {
-    var name by rememberSaveable { mutableStateOf("") }
-    var price by rememberSaveable { mutableStateOf("") }
+    var name by rememberSaveable(item?.id) { mutableStateOf(item?.name.orEmpty()) }
+    var price by rememberSaveable(item?.id) {
+        val enteredPrice = item?.let { BigDecimal.valueOf(it.unitPricePaisa, 2).stripTrailingZeros().toPlainString() }
+        mutableStateOf(enteredPrice.orEmpty())
+    }
     var invalidPrice by rememberSaveable { mutableStateOf(false) }
     var isSaving by remember { mutableStateOf(false) }
     val nameFocus = remember { FocusRequester() }
@@ -53,7 +58,7 @@ internal fun AddItemDialog(
             invalidPrice = amount == null
             if (amount != null) {
                 isSaving = true
-                onAdd(name.trim(), amount) { saved ->
+                onSave(name.trim(), amount) { saved ->
                     isSaving = false
                     if (saved) onDismiss()
                 }
@@ -63,7 +68,13 @@ internal fun AddItemDialog(
 
     AlertDialog(
         onDismissRequest = { if (!isSaving) onDismiss() },
-        title = { BilingualLabel(R.string.add_item, R.string.add_item_ne, mainStyle = MaterialTheme.typography.titleLarge) },
+        title = {
+            BilingualLabel(
+                if (item == null) R.string.add_item else R.string.edit_item,
+                if (item == null) R.string.add_item_ne else R.string.edit_item_ne,
+                mainStyle = MaterialTheme.typography.titleLarge,
+            )
+        },
         text = {
             Column(
                 modifier = Modifier.verticalScroll(rememberScrollState()),
@@ -201,30 +212,7 @@ internal fun ShopDialog(
 }
 
 @Composable
-internal fun PhotoDialog(
-    onDismiss: () -> Unit,
-    onChange: () -> Unit,
-    onRemove: () -> Unit,
-) {
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { BilingualLabel(R.string.item_photo, R.string.item_photo_ne, mainStyle = MaterialTheme.typography.titleLarge) },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Button(onClick = onChange, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) {
-                    BilingualLabel(R.string.change_photo, R.string.change_photo_ne, centered = true)
-                }
-                OutlinedButton(onClick = onRemove, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) {
-                    BilingualLabel(R.string.remove_photo, R.string.remove_photo_ne, centered = true)
-                }
-            }
-        },
-        confirmButton = { CancelButton(onDismiss) },
-    )
-}
-
-@Composable
-private fun CancelButton(onClick: () -> Unit, enabled: Boolean = true) {
+internal fun CancelButton(onClick: () -> Unit, enabled: Boolean = true) {
     TextButton(onClick = onClick, enabled = enabled, modifier = Modifier.heightIn(min = 48.dp)) {
         BilingualLabel(R.string.cancel, R.string.cancel_ne, centered = true)
     }

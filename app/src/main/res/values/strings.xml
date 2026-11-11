@@ -2,6 +2,8 @@
 <resources>
     <string name="app_name">Quick Bill</string>
     <string name="app_name_ne">छिटो बिल</string>
+    <string name="mode_calculator">Calculator</string>
+    <string name="mode_calculator_ne">क्याल्कुलेटर</string>
     <string name="favourites">Favourites</string>
     <string name="favourites_ne">मनपर्ने सामान</string>
     <string name="add_item">Add item</string>
@@ -52,9 +54,6 @@
     <string name="reprint_ne">फेरि छाप्नुहोस्</string>
     <string name="unit_price">%1$s / each</string>
     <string name="unit_price_ne">प्रति गोटा</string>
-    <string name="manage_photo">Add or change photo / फोटो थप्नुहोस् वा बदल्नुहोस्</string>
-    <string name="item_photo">Item photo</string>
-    <string name="item_photo_ne">सामानको फोटो</string>
     <string name="change_photo">Change photo</string>
     <string name="change_photo_ne">फोटो बदल्नुहोस्</string>
     <string name="remove_photo">Remove photo</string>

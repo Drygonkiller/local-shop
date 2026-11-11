@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="manage_favourite">Manage item / सामान मिलाउनुहोस्</string>
+    <string name="edit_item">Edit item</string>
+    <string name="edit_item_ne">सामान सच्याउनुहोस्</string>
+    <string name="delete_item">Delete item</string>
+    <string name="delete_item_ne">सामान हटाउनुहोस्</string>
+    <string name="add_photo">Add photo</string>
+    <string name="add_photo_ne">फोटो थप्नुहोस्</string>
+    <string name="confirm_delete_favourite">Remove %1$s from Favourites? Saved bills are available in History.</string>
+    <string name="confirm_delete_favourite_ne">मनपर्ने सामानबाट %1$s हटाउने हो? सुरक्षित बिलहरू बिल सूचीमा हेर्न सक्नुहुन्छ।</string>
+</resources>

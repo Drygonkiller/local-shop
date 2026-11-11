@@ -35,11 +35,17 @@ interface QuickBillDao {
     @Insert
     suspend fun insertFavourite(favourite: FavouriteItem): Long
 
+    @Query("UPDATE favourites SET name = :name, unitPricePaisa = :unitPricePaisa WHERE id = :id")
+    suspend fun updateFavourite(id: Long, name: String, unitPricePaisa: Long): Int
+
+    @Query("DELETE FROM favourites WHERE id = :id")
+    suspend fun deleteFavourite(id: Long): Int
+
     @Query("UPDATE favourites SET photoUri = :uri WHERE id = :id")
     suspend fun setFavouritePhoto(id: Long, uri: String?): Int
 
     @Query("UPDATE favourites SET timesUsed = timesUsed + :quantity WHERE id = :id")
-    suspend fun recordUse(id: Long, quantity: Int): Int
+    suspend fun recordUse(id: Long, quantity: Int)
 
     @Query("SELECT * FROM shop_details WHERE id = 1")
     fun observeShop(): Flow<ShopDetails?>

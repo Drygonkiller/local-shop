@@ -1,5 +1,6 @@
 package com.quickbill.app.ui
 
+import android.content.ActivityNotFoundException
 import android.content.Context
 import android.content.Intent
 import android.widget.Toast
@@ -26,7 +27,9 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.PrimaryTabRow
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -50,13 +53,19 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.quickbill.app.QuickBillUiState
 import com.quickbill.app.R
+import com.quickbill.app.calculator.CalculatorKey
 import com.quickbill.app.data.Bill
 import com.quickbill.app.data.FavouriteItem
 import com.quickbill.app.data.formatNpr
 import kotlinx.coroutines.flow.Flow
 
 private enum class Screen { Home, Bill, History }
+private enum class BillingMode { Favourites, Calculator }
 private enum class EntryDialog { AddItem, Shop, ShopForPrint }
+private enum class BillFooterAction(@param:StringRes val label: Int, @param:StringRes val nepali: Int) {
+    ViewBill(R.string.view_bill, R.string.view_bill_ne),
+    AddItems(R.string.add_items, R.string.add_items_ne),
+}
 
 private class OpenLocalPhoto : ActivityResultContracts.OpenDocument() {
     override fun createIntent(context: Context, input: Array<String>): Intent {
@@ -69,17 +78,22 @@ fun QuickBillApp(
     state: QuickBillUiState,
     history: Flow<List<Bill>>,
     onAddFavorite: (String, Long, (Boolean) -> Unit) -> Unit,
+    onEditFavourite: (Long, String, Long, (Boolean) -> Unit) -> Unit,
+    onDeleteFavourite: (Long, (Boolean) -> Unit) -> Unit,
     onAddToBill: (FavouriteItem) -> Unit,
     onChangeQuantity: (Long, Int) -> Unit,
     onPrintBill: () -> Unit,
+    onCalculatorKey: (CalculatorKey) -> Unit,
+    onPrintCalculatorBill: () -> Unit,
     onSaveShop: (String, String, (Boolean) -> Unit) -> Unit,
     onReprint: (Long) -> Unit,
     onSetPhoto: (Long, String?) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     var screen by rememberSaveable { mutableStateOf(Screen.Home) }
+    var mode by rememberSaveable { mutableStateOf(BillingMode.Favourites) }
     var entryDialog by rememberSaveable { mutableStateOf<EntryDialog?>(null) }
-    var photoMenuId by rememberSaveable { mutableStateOf<Long?>(null) }
+    var favouriteMenuId by rememberSaveable { mutableStateOf<Long?>(null) }
     var photoTargetId by rememberSaveable { mutableStateOf<Long?>(null) }
     val context = LocalContext.current
     val photoContract = remember { OpenLocalPhoto() }
@@ -99,12 +113,21 @@ fun QuickBillApp(
     }
     val pickPhoto: (Long) -> Unit = { id ->
         photoTargetId = id
-        photoPicker.launch(arrayOf("image/*"))
+        try {
+            photoPicker.launch(arrayOf("image/*"))
+        } catch (_: ActivityNotFoundException) {
+            photoTargetId = null
+            Toast.makeText(context, R.string.photo_access_error, Toast.LENGTH_SHORT).show()
+        }
     }
+    val inCalculator = screen == Screen.Home && mode == BillingMode.Calculator
+    val checkout = if (inCalculator) onPrintCalculatorBill else onPrintBill
     val requestPrint: () -> Unit = {
-        if (state.shop == null) entryDialog = EntryDialog.ShopForPrint else onPrintBill()
+        if (state.shop == null) entryDialog = EntryDialog.ShopForPrint else checkout()
     }
-    BackHandler(enabled = screen != Screen.Home) { screen = Screen.Home }
+    BackHandler(enabled = screen != Screen.Home || inCalculator) {
+        if (screen != Screen.Home) screen = Screen.Home else mode = BillingMode.Favourites
+    }
     LaunchedEffect(state.lines.isEmpty()) {
         if (screen == Screen.Bill && state.lines.isEmpty()) screen = Screen.Home
     }
@@ -118,24 +141,41 @@ fun QuickBillApp(
                 onShop = { entryDialog = EntryDialog.Shop },
                 onHistory = { screen = Screen.History },
             )
+            if (screen == Screen.Home) {
+                Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+                    BillingTabs(
+                        selected = mode,
+                        enabled = !state.isSavingBill,
+                        onSelect = { mode = it },
+                        modifier = Modifier.widthIn(max = 760.dp),
+                    )
+                }
+            }
             Box(
                 modifier = Modifier.weight(1f).fillMaxWidth(),
                 contentAlignment = Alignment.TopCenter,
             ) {
                 val bodyModifier = Modifier.widthIn(max = 760.dp).fillMaxSize()
                 when (screen) {
-                    Screen.Home -> FavouritesScreen(
-                        favourites = state.favourites,
-                        lines = state.lines,
-                        isLoading = state.isLoading,
-                        canAddToBill = !state.isSavingBill,
-                        onAddItem = { entryDialog = EntryDialog.AddItem },
-                        onTap = onAddToBill,
-                        onManagePhoto = { item ->
-                            if (item.photoUri == null) pickPhoto(item.id) else photoMenuId = item.id
-                        },
-                        modifier = bodyModifier,
-                    )
+                    Screen.Home -> if (inCalculator) {
+                        CalculatorScreen(
+                            draft = state.calculator,
+                            enabled = !state.isSavingBill,
+                            onKey = onCalculatorKey,
+                            modifier = bodyModifier,
+                        )
+                    } else {
+                        FavouritesScreen(
+                            favourites = state.favourites,
+                            lines = state.lines,
+                            isLoading = state.isLoading,
+                            canAddToBill = !state.isSavingBill,
+                            onAddItem = { entryDialog = EntryDialog.AddItem },
+                            onTap = onAddToBill,
+                            onManageFavourite = { item -> favouriteMenuId = item.id },
+                            modifier = bodyModifier,
+                        )
+                    }
                     Screen.Bill -> BillingScreen(
                         lines = state.lines,
                         canChangeQuantity = !state.isSavingBill,
@@ -150,10 +190,18 @@ fun QuickBillApp(
             }
             if (screen != Screen.History) {
                 BillFooter(
-                    totalPaisa = state.totalPaisa,
-                    hasLines = state.lines.isNotEmpty(),
+                    totalPaisa = if (inCalculator) state.calculator.totalPaisa else state.totalPaisa,
+                    canPrint = !state.isLoading && if (inCalculator) {
+                        state.calculator.canPrint
+                    } else {
+                        state.lines.isNotEmpty()
+                    },
                     isSaving = state.isSavingBill,
-                    isHome = screen == Screen.Home,
+                    secondaryAction = when {
+                        inCalculator -> null
+                        screen == Screen.Bill -> BillFooterAction.AddItems
+                        else -> BillFooterAction.ViewBill
+                    },
                     onSecondaryClick = {
                         screen = if (screen == Screen.Home) Screen.Bill else Screen.Home
                     },
@@ -164,9 +212,9 @@ fun QuickBillApp(
     }
 
     when (entryDialog) {
-        EntryDialog.AddItem -> AddItemDialog(
+        EntryDialog.AddItem -> ItemEditorDialog(
             onDismiss = { entryDialog = null },
-            onAdd = onAddFavorite,
+            onSave = onAddFavorite,
         )
         EntryDialog.Shop, EntryDialog.ShopForPrint -> ShopDialog(
             shop = state.shop,
@@ -176,23 +224,47 @@ fun QuickBillApp(
             onSaved = {
                 val resumePrint = entryDialog == EntryDialog.ShopForPrint
                 entryDialog = null
-                if (resumePrint) onPrintBill()
+                if (resumePrint) checkout()
             },
         )
         null -> Unit
     }
 
-    photoMenuId?.let { id ->
-        PhotoDialog(
-            onDismiss = { photoMenuId = null },
-            onChange = {
-                photoMenuId = null
-                pickPhoto(id)
-            },
-            onRemove = {
-                photoMenuId = null
-                onSetPhoto(id, null)
-            },
+    state.favourites.firstOrNull { it.id == favouriteMenuId }?.let { item ->
+        FavouriteActions(
+            item = item,
+            onDismiss = { favouriteMenuId = null },
+            onEdit = onEditFavourite,
+            onDelete = onDeleteFavourite,
+            onPickPhoto = pickPhoto,
+            onRemovePhoto = { id -> onSetPhoto(id, null) },
+        )
+    }
+}
+
+@Composable
+private fun BillingTabs(
+    selected: BillingMode,
+    enabled: Boolean,
+    onSelect: (BillingMode) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    PrimaryTabRow(
+        selectedTabIndex = selected.ordinal,
+        modifier = modifier,
+        containerColor = MaterialTheme.colorScheme.surface,
+    ) {
+        Tab(
+            selected = selected == BillingMode.Favourites,
+            enabled = enabled,
+            onClick = { onSelect(BillingMode.Favourites) },
+            text = { BilingualLabel(R.string.favourites, R.string.favourites_ne, centered = true) },
+        )
+        Tab(
+            selected = selected == BillingMode.Calculator,
+            enabled = enabled,
+            onClick = { onSelect(BillingMode.Calculator) },
+            text = { BilingualLabel(R.string.mode_calculator, R.string.mode_calculator_ne, centered = true) },
         )
     }
 }
@@ -269,9 +341,9 @@ private fun HeaderAction(
 @Composable
 private fun BillFooter(
     totalPaisa: Long,
-    hasLines: Boolean,
+    canPrint: Boolean,
     isSaving: Boolean,
-    isHome: Boolean,
+    secondaryAction: BillFooterAction?,
     onSecondaryClick: () -> Unit,
     onPrint: () -> Unit,
 ) {
@@ -303,21 +375,19 @@ private fun BillFooter(
                     )
                 }
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedButton(
-                        onClick = onSecondaryClick,
-                        enabled = !isSaving && (hasLines || !isHome),
-                        modifier = Modifier.weight(1f).heightIn(min = 58.dp),
-                        shape = RoundedCornerShape(14.dp),
-                    ) {
-                        BilingualLabel(
-                            if (isHome) R.string.view_bill else R.string.add_items,
-                            if (isHome) R.string.view_bill_ne else R.string.add_items_ne,
-                            centered = true,
-                        )
+                    if (secondaryAction != null) {
+                        OutlinedButton(
+                            onClick = onSecondaryClick,
+                            enabled = !isSaving && (canPrint || secondaryAction == BillFooterAction.AddItems),
+                            modifier = Modifier.weight(1f).heightIn(min = 58.dp),
+                            shape = RoundedCornerShape(14.dp),
+                        ) {
+                            BilingualLabel(secondaryAction.label, secondaryAction.nepali, centered = true)
+                        }
                     }
                     Button(
                         onClick = onPrint,
-                        enabled = hasLines && !isSaving,
+                        enabled = canPrint && !isSaving,
                         modifier = Modifier.weight(1.25f).heightIn(min = 58.dp),
                         shape = RoundedCornerShape(14.dp),
                     ) {

@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="calculator_amount">Amount</string>
+    <string name="calculator_amount_ne">रकम</string>
+    <string name="calculator_hint">Enter an amount and print, or tap + to enter another.</string>
+    <string name="calculator_hint_ne">रकम लेखेर बिल छाप्नुहोस् वा अर्को रकमका लागि + थिच्नुहोस्।</string>
+    <string name="calculator_clear">Clear</string>
+    <string name="calculator_clear_ne">मेट्नुहोस्</string>
+    <string name="calculator_backspace">Backspace / पछिल्लो अङ्क मेट्नुहोस्</string>
+    <string name="calculator_decimal">Decimal point / दशमलव बिन्दु</string>
+    <string name="calculator_plus">Add another amount / अर्को रकम थप्नुहोस्</string>
+</resources>

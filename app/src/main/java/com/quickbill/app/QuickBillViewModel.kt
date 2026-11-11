@@ -5,6 +5,8 @@ import android.util.Log
 import androidx.annotation.StringRes
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.quickbill.app.calculator.CalculatorDraft
+import com.quickbill.app.calculator.CalculatorKey
 import com.quickbill.app.data.FavouriteItem
 import com.quickbill.app.data.MAX_QUANTITY
 import com.quickbill.app.data.SaleLine
@@ -25,6 +27,7 @@ data class QuickBillUiState(
     val favourites: List<FavouriteItem> = emptyList(),
     val lines: List<SaleLine> = emptyList(),
     val totalPaisa: Long = 0,
+    val calculator: CalculatorDraft = CalculatorDraft(),
     val shop: ShopDetails? = null,
     val isLoading: Boolean = true,
     val isSavingBill: Boolean = false,
@@ -38,6 +41,7 @@ sealed interface BillEvent {
 class QuickBillViewModel(application: Application) : AndroidViewModel(application) {
     private val repository = (application as QuickBillApplication).repository
     private val lines = MutableStateFlow<List<SaleLine>>(emptyList())
+    private val calculator = MutableStateFlow(CalculatorDraft())
     private val isSavingBill = MutableStateFlow(false)
     private val eventChannel = Channel<BillEvent>(Channel.BUFFERED)
     private var reprintJob: Job? = null
@@ -45,12 +49,13 @@ class QuickBillViewModel(application: Application) : AndroidViewModel(applicatio
     val events = eventChannel.receiveAsFlow()
     val history = repository.history
     val state = combine(
-        repository.favourites, lines, repository.shop, isSavingBill,
-    ) { favourites, currentLines, shop, saving ->
+        repository.favourites, lines, calculator, repository.shop, isSavingBill,
+    ) { favourites, currentLines, currentCalculator, shop, saving ->
         QuickBillUiState(
             favourites = favourites,
             lines = currentLines,
             totalPaisa = totalPaisa(currentLines),
+            calculator = currentCalculator,
             shop = shop,
             isLoading = false,
             isSavingBill = saving,
@@ -63,6 +68,31 @@ class QuickBillViewModel(application: Application) : AndroidViewModel(applicatio
                 repository.addFavourite(name, unitPricePaisa)
             } != null
             onComplete(saved)
+        }
+    }
+
+    fun editFavourite(id: Long, name: String, unitPricePaisa: Long, onComplete: (Boolean) -> Unit) {
+        viewModelScope.launch {
+            val saved = runAction(R.string.favourite_save_failed) {
+                repository.updateFavourite(id, name, unitPricePaisa)
+                lines.value = lines.value.map { line ->
+                    if (line.favouriteId == id) {
+                        line.copy(name = name.trim(), unitPricePaisa = unitPricePaisa)
+                    } else {
+                        line
+                    }
+                }
+            } != null
+            onComplete(saved)
+        }
+    }
+
+    fun deleteFavourite(id: Long, onComplete: (Boolean) -> Unit) {
+        viewModelScope.launch {
+            val deleted = runAction(R.string.favourite_delete_failed) {
+                repository.deleteFavourite(id)
+            } != null
+            onComplete(deleted)
         }
     }
 
@@ -101,8 +131,19 @@ class QuickBillViewModel(application: Application) : AndroidViewModel(applicatio
         }
     }
 
-    fun printCurrentBill() {
-        val checkoutLines = lines.value
+    fun pressCalculatorKey(key: CalculatorKey) {
+        if (!isSavingBill.value) calculator.value = calculator.value.press(key)
+    }
+
+    fun printCurrentBill() = saveAndPrint(lines.value) {
+        lines.value = emptyList()
+    }
+
+    fun printCalculatorBill() = saveAndPrint(calculator.value.toSaleLines()) {
+        calculator.value = CalculatorDraft()
+    }
+
+    private fun saveAndPrint(checkoutLines: List<SaleLine>, clearDraft: () -> Unit) {
         if (checkoutLines.isEmpty() || isSavingBill.value) return
         isSavingBill.value = true
         viewModelScope.launch {
@@ -110,7 +151,7 @@ class QuickBillViewModel(application: Application) : AndroidViewModel(applicatio
                 val bill = runAction(R.string.bill_save_failed) {
                     repository.saveBill(checkoutLines)
                 } ?: return@launch
-                lines.value = emptyList()
+                clearDraft()
                 eventChannel.send(BillEvent.Print(bill))
             } finally {
                 isSavingBill.value = false

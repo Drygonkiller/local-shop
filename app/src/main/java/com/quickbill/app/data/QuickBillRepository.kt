@@ -10,10 +10,17 @@ class QuickBillRepository(private val database: QuickBillDatabase) {
     val history = dao.observeBills()
 
     suspend fun addFavourite(name: String, unitPricePaisa: Long): Long {
-        val trimmedName = name.trim()
-        require(trimmedName.isNotEmpty()) { "Item name is required" }
-        require(unitPricePaisa in 0..MAX_PRICE_PAISA) { "Price is out of range" }
-        return dao.insertFavourite(FavouriteItem(name = trimmedName, unitPricePaisa = unitPricePaisa))
+        validateFavouriteFields(name, unitPricePaisa)
+        return dao.insertFavourite(FavouriteItem(name = name.trim(), unitPricePaisa = unitPricePaisa))
+    }
+
+    suspend fun updateFavourite(id: Long, name: String, unitPricePaisa: Long) {
+        validateFavouriteFields(name, unitPricePaisa)
+        check(dao.updateFavourite(id, name.trim(), unitPricePaisa) == 1) { "Favourite item is missing" }
+    }
+
+    suspend fun deleteFavourite(id: Long) {
+        check(dao.deleteFavourite(id) == 1) { "Favourite item is missing" }
     }
 
     suspend fun setFavouritePhoto(id: Long, uri: String?) {
@@ -50,7 +57,8 @@ class QuickBillRepository(private val database: QuickBillDatabase) {
         dao.insertBillLines(billLines)
         for (line in billLines) {
             val favouriteId = line.favouriteId ?: continue
-            check(dao.recordUse(favouriteId, line.quantity) == 1) { "Favourite item is missing" }
+            // A deleted favourite can still have a snapshotted line in the active bill.
+            dao.recordUse(favouriteId, line.quantity)
         }
         SavedBill(header.copy(billNumber = billNumber), billLines)
     }
@@ -58,5 +66,10 @@ class QuickBillRepository(private val database: QuickBillDatabase) {
     suspend fun getBill(billNumber: Long): SavedBill? = database.withTransaction {
         val bill = dao.getBill(billNumber) ?: return@withTransaction null
         SavedBill(bill, dao.getBillLines(billNumber))
+    }
+
+    private fun validateFavouriteFields(name: String, unitPricePaisa: Long) {
+        require(name.isNotBlank()) { "Item name is required" }
+        require(unitPricePaisa in 0..MAX_PRICE_PAISA) { "Price is out of range" }
     }
 }
