@@ -27,7 +27,8 @@ class MainActivity : ComponentActivity() {
                 viewModel.events.collect { event ->
                     when (event) {
                         is BillEvent.Print -> {
-                            if (!printBill(this@MainActivity, event.bill)) {
+                            val handled = viewModel.thermalPrinting.printBill(event.bill)
+                            if (!handled && !printBill(this@MainActivity, event.bill)) {
                                 showMessage(R.string.print_unavailable)
                             }
                         }
@@ -42,6 +43,7 @@ class MainActivity : ComponentActivity() {
                 QuickBillApp(
                     state = viewModel.state.collectAsStateWithLifecycle().value,
                     history = viewModel.history,
+                    thermalPrinting = viewModel.thermalPrinting,
                     onAddFavorite = viewModel::addFavourite,
                     onEditFavourite = viewModel::editFavourite,
                     onDeleteFavourite = viewModel::deleteFavourite,
@@ -56,6 +58,11 @@ class MainActivity : ComponentActivity() {
                 )
             }
         }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        viewModel.thermalPrinting.refreshPermission()
     }
 
     private fun showMessage(message: Int) {

@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="thermal_title">Thermal printer / थर्मल प्रिन्टर</string>
+    <string name="thermal_choose">Choose paired printer\nजोडिएको प्रिन्टर छान्नुहोस्</string>
+    <string name="thermal_system_printing">Android print sheet selected.\nएन्ड्रोइड प्रिन्ट विकल्प चयन गरिएको छ।</string>
+    <string name="thermal_use_system">Use Android print sheet\nएन्ड्रोइड प्रिन्ट विकल्प प्रयोग गर्नुहोस्</string>
+    <string name="thermal_print_test">Print test receipt\nपरीक्षण बिल छाप्नुहोस्</string>
+    <string name="thermal_bluetooth_settings">Bluetooth settings\nब्लुटुथ सेटिङ</string>
+    <string name="thermal_done">Done / भयो</string>
+    <string name="thermal_sending">Sending…\nपठाउँदैछ…</string>
+    <string name="thermal_pair_first">Pair a 58 mm Classic Bluetooth ESC/POS printer in Android settings.\nएन्ड्रोइड सेटिङमा ५८ मिमिको क्लासिक ब्लुटुथ ESC/POS प्रिन्टर जोड्नुहोस्।</string>
+    <string name="thermal_permission_setup">Print a test receipt to grant access and choose a paired printer.\nअनुमति दिन र जोडिएको प्रिन्टर छान्न परीक्षण बिल छाप्नुहोस्।</string>
+    <string name="thermal_permission_title">Bluetooth access / ब्लुटुथ अनुमति</string>
+    <string name="thermal_permission_reason">Quick Bill needs Nearby devices access to find your paired printer and send receipts.\nजोडिएको प्रिन्टर फेला पार्न र बिल पठाउन छिटो बिललाई नजिकका उपकरणको अनुमति चाहिन्छ।</string>
+    <string name="thermal_allow">Continue / अगाडि बढ्नुहोस्</string>
+    <string name="thermal_failed">Could not print / छाप्न सकिएन</string>
+    <string name="thermal_permission_denied">Allow Nearby devices for Quick Bill in Android settings, then try again.\nएन्ड्रोइड सेटिङमा छिटो बिललाई नजिकका उपकरणको अनुमति दिएर फेरि प्रयास गर्नुहोस्।</string>
+    <string name="thermal_bluetooth_unavailable">Bluetooth is unavailable on this device.\nयस उपकरणमा ब्लुटुथ उपलब्ध छैन।</string>
+    <string name="thermal_bluetooth_off">Turn on Bluetooth, then try again.\nब्लुटुथ खोलेर फेरि प्रयास गर्नुहोस्।</string>
+    <string name="thermal_not_paired">Pair the printer in Android Bluetooth settings, then choose it again.\nएन्ड्रोइड ब्लुटुथ सेटिङमा प्रिन्टर जोडेर फेरि छान्नुहोस्।</string>
+    <string name="thermal_connection_failed">Check that the printer is on and within Bluetooth range, then try again.\nप्रिन्टर खुलेको र ब्लुटुथको दायराभित्र भएको जाँच गरेर फेरि प्रयास गर्नुहोस्।</string>
+    <string name="thermal_saved_in_history">The bill is saved. Reprint it from History.\nबिल सुरक्षित छ। बिल सूचीबाट फेरि छाप्नुहोस्।</string>
+    <string name="thermal_test_item">Test item / नमुना सामान</string>
+    <string name="thermal_test_sent">Test receipt sent. Check the printer.\nपरीक्षण बिल पठाइयो। प्रिन्टर हेर्नुहोस्।</string>
+</resources>

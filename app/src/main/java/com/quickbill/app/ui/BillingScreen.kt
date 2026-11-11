@@ -165,6 +165,7 @@ private fun QuantityStepper(
 internal fun HistoryScreen(
     history: List<Bill>,
     onReprint: (Long) -> Unit,
+    canReprint: Boolean,
     modifier: Modifier = Modifier,
 ) {
     if (history.isEmpty()) {
@@ -216,6 +217,7 @@ internal fun HistoryScreen(
                     }
                     OutlinedButton(
                         onClick = { onReprint(bill.billNumber) },
+                        enabled = canReprint,
                         modifier = Modifier.heightIn(min = 48.dp),
                         shape = RoundedCornerShape(12.dp),
                         contentPadding = PaddingValues(horizontal = 12.dp, vertical = 7.dp),

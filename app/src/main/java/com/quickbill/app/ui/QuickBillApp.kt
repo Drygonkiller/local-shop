@@ -57,6 +57,7 @@ import com.quickbill.app.calculator.CalculatorKey
 import com.quickbill.app.data.Bill
 import com.quickbill.app.data.FavouriteItem
 import com.quickbill.app.data.formatNpr
+import com.quickbill.app.printing.ThermalPrinting
 import kotlinx.coroutines.flow.Flow
 
 private enum class Screen { Home, Bill, History }
@@ -74,9 +75,10 @@ private class OpenLocalPhoto : ActivityResultContracts.OpenDocument() {
 }
 
 @Composable
-fun QuickBillApp(
+internal fun QuickBillApp(
     state: QuickBillUiState,
     history: Flow<List<Bill>>,
+    thermalPrinting: ThermalPrinting,
     onAddFavorite: (String, Long, (Boolean) -> Unit) -> Unit,
     onEditFavourite: (Long, String, Long, (Boolean) -> Unit) -> Unit,
     onDeleteFavourite: (Long, (Boolean) -> Unit) -> Unit,
@@ -93,9 +95,12 @@ fun QuickBillApp(
     var screen by rememberSaveable { mutableStateOf(Screen.Home) }
     var mode by rememberSaveable { mutableStateOf(BillingMode.Favourites) }
     var entryDialog by rememberSaveable { mutableStateOf<EntryDialog?>(null) }
+    var showThermalSettings by rememberSaveable { mutableStateOf(false) }
     var favouriteMenuId by rememberSaveable { mutableStateOf<Long?>(null) }
     var photoTargetId by rememberSaveable { mutableStateOf<Long?>(null) }
     val context = LocalContext.current
+    val printerState by thermalPrinting.state.collectAsStateWithLifecycle()
+    val printerBusy = printerState.printing || printerState.askingPermission
     val photoContract = remember { OpenLocalPhoto() }
     val photoPicker = rememberLauncherForActivityResult(photoContract) { uri ->
         val itemId = photoTargetId
@@ -184,7 +189,12 @@ fun QuickBillApp(
                     )
                     Screen.History -> {
                         val savedBills by history.collectAsStateWithLifecycle(initialValue = emptyList())
-                        HistoryScreen(history = savedBills, onReprint = onReprint, modifier = bodyModifier)
+                        HistoryScreen(
+                            history = savedBills,
+                            onReprint = onReprint,
+                            canReprint = !printerBusy && !state.isSavingBill,
+                            modifier = bodyModifier,
+                        )
                     }
                 }
             }
@@ -197,6 +207,7 @@ fun QuickBillApp(
                         state.lines.isNotEmpty()
                     },
                     isSaving = state.isSavingBill,
+                    isPrinting = printerBusy,
                     secondaryAction = when {
                         inCalculator -> null
                         screen == Screen.Bill -> BillFooterAction.AddItems
@@ -221,6 +232,11 @@ fun QuickBillApp(
             forPrint = entryDialog == EntryDialog.ShopForPrint,
             onDismiss = { entryDialog = null },
             onSave = onSaveShop,
+            onThermalPrinter = if (entryDialog == EntryDialog.Shop) {
+                { showThermalSettings = true }
+            } else {
+                null
+            },
             onSaved = {
                 val resumePrint = entryDialog == EntryDialog.ShopForPrint
                 entryDialog = null
@@ -240,6 +256,15 @@ fun QuickBillApp(
             onRemovePhoto = { id -> onSetPhoto(id, null) },
         )
     }
+    if (showThermalSettings) {
+        ThermalPrinterSettings(
+            printing = thermalPrinting,
+            state = printerState,
+            shop = state.shop,
+            onDismiss = { showThermalSettings = false },
+        )
+    }
+    ThermalPrinterPrompts(thermalPrinting, printerState)
 }
 
 @Composable
@@ -343,6 +368,7 @@ private fun BillFooter(
     totalPaisa: Long,
     canPrint: Boolean,
     isSaving: Boolean,
+    isPrinting: Boolean,
     secondaryAction: BillFooterAction?,
     onSecondaryClick: () -> Unit,
     onPrint: () -> Unit,
@@ -387,16 +413,20 @@ private fun BillFooter(
                     }
                     Button(
                         onClick = onPrint,
-                        enabled = canPrint && !isSaving,
+                        enabled = canPrint && !isSaving && !isPrinting,
                         modifier = Modifier.weight(1.25f).heightIn(min = 58.dp),
                         shape = RoundedCornerShape(14.dp),
                     ) {
                         BillIcon(BillIcon.Print, size = 21.dp)
                         Spacer(Modifier.width(8.dp))
-                        BilingualLabel(
-                            if (isSaving) R.string.saving_bill else R.string.print_bill,
-                            if (isSaving) R.string.saving_bill_ne else R.string.print_bill_ne,
-                        )
+                        if (isPrinting) {
+                            Text(stringResource(R.string.thermal_sending))
+                        } else {
+                            BilingualLabel(
+                                if (isSaving) R.string.saving_bill else R.string.print_bill,
+                                if (isSaving) R.string.saving_bill_ne else R.string.print_bill_ne,
+                            )
+                        }
                     }
                 }
             }

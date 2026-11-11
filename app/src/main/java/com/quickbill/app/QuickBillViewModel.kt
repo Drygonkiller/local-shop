@@ -13,6 +13,7 @@ import com.quickbill.app.data.SaleLine
 import com.quickbill.app.data.SavedBill
 import com.quickbill.app.data.ShopDetails
 import com.quickbill.app.data.totalPaisa
+import com.quickbill.app.printing.ThermalPrinting
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
@@ -40,6 +41,7 @@ sealed interface BillEvent {
 
 class QuickBillViewModel(application: Application) : AndroidViewModel(application) {
     private val repository = (application as QuickBillApplication).repository
+    internal val thermalPrinting = ThermalPrinting(application, viewModelScope)
     private val lines = MutableStateFlow<List<SaleLine>>(emptyList())
     private val calculator = MutableStateFlow(CalculatorDraft())
     private val isSavingBill = MutableStateFlow(false)
@@ -144,7 +146,7 @@ class QuickBillViewModel(application: Application) : AndroidViewModel(applicatio
     }
 
     private fun saveAndPrint(checkoutLines: List<SaleLine>, clearDraft: () -> Unit) {
-        if (checkoutLines.isEmpty() || isSavingBill.value) return
+        if (checkoutLines.isEmpty() || isSavingBill.value || thermalPrinting.busy) return
         isSavingBill.value = true
         viewModelScope.launch {
             try {
@@ -160,7 +162,7 @@ class QuickBillViewModel(application: Application) : AndroidViewModel(applicatio
     }
 
     fun reprint(billNumber: Long) {
-        if (reprintJob?.isActive == true || isSavingBill.value) return
+        if (reprintJob?.isActive == true || isSavingBill.value || thermalPrinting.busy) return
         reprintJob = viewModelScope.launch {
             val bill = runAction(R.string.bill_open_failed) {
                 checkNotNull(repository.getBill(billNumber))

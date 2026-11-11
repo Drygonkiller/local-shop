@@ -11,6 +11,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -130,6 +131,7 @@ internal fun ShopDialog(
     onDismiss: () -> Unit,
     onSave: (String, String, (Boolean) -> Unit) -> Unit,
     onSaved: () -> Unit,
+    onThermalPrinter: (() -> Unit)? = null,
 ) {
     var name by rememberSaveable { mutableStateOf(shop?.name.orEmpty()) }
     var pan by rememberSaveable { mutableStateOf(shop?.pan.orEmpty()) }
@@ -192,6 +194,15 @@ internal fun ShopDialog(
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Done),
                     keyboardActions = KeyboardActions(onDone = { submit() }),
                 )
+                if (onThermalPrinter != null) {
+                    OutlinedButton(
+                        onClick = onThermalPrinter,
+                        enabled = !isSaving,
+                        modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
+                    ) {
+                        Text(stringResource(R.string.thermal_title))
+                    }
+                }
             }
         },
         confirmButton = {

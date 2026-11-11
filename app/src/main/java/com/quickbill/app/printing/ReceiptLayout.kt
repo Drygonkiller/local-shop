@@ -21,12 +21,13 @@ private const val RECEIPT_MAX_WIDTH = 260
 private const val COLUMN_GAP = 8
 private const val RULE_HEIGHT = 6
 
-/** Lays out one receipt in printable points so preview and print have the same pagination. */
+/** Lays out one receipt for a paginated PDF or a continuous thermal roll. */
 internal class ReceiptLayout(
     savedBill: SavedBill,
     paperWidth: Int,
-    paperHeight: Int,
+    paperHeight: Int?,
     cancellationSignal: CancellationSignal?,
+    isTest: Boolean = false,
 ) {
     private val width = (paperWidth - PAGE_PADDING * 2).coerceAtMost(RECEIPT_MAX_WIDTH)
     private val leftInset = (paperWidth - width) / 2f
@@ -54,28 +55,33 @@ internal class ReceiptLayout(
         header = listOf(
             text(bill.shopName, titleStyle, alignment = Layout.Alignment.ALIGN_CENTER),
             text("PAN / प्यान ${bill.shopPan}", detailStyle),
-            text("Bill no. / बिल नं. ${bill.billNumber}", detailStyle),
+            text(
+                if (isTest) "Test receipt / परीक्षण बिल" else "Bill no. / बिल नं. ${bill.billNumber}",
+                if (isTest) amountStyle else detailStyle,
+            ),
             text("Date / मिति $date", detailStyle),
         )
 
-        val bodyHeight = paperHeight - PAGE_PADDING * 2 - header.sumOf { it.height } - RULE_HEIGHT
+        val bodyHeight = paperHeight?.let { it - headerHeight - PAGE_PADDING }
         val total = ReceiptRow(
             body = columns("Total / जम्मा", totalStyle, formatNpr(bill.totalPaisa), totalStyle),
             divider = true,
         )
         val receiptPages = mutableListOf<List<ReceiptRow>>()
         var page = mutableListOf<ReceiptRow>()
-        var available = bodyHeight
+        var available = bodyHeight ?: 0
 
         fun addRow(row: ReceiptRow, spaceAfter: Int = 0) {
-            require(row.height <= bodyHeight) { "Printable height is too small" }
-            if (row.height + spaceAfter > available) {
-                receiptPages.add(page)
-                page = mutableListOf()
-                available = bodyHeight
+            if (bodyHeight != null) {
+                require(row.height <= bodyHeight) { "Printable height is too small" }
+                if (row.height + spaceAfter > available) {
+                    receiptPages.add(page)
+                    page = mutableListOf()
+                    available = bodyHeight
+                }
+                available -= row.height
             }
             page.add(row)
-            available -= row.height
         }
 
         for ((index, line) in savedBill.lines.withIndex()) {
@@ -88,7 +94,9 @@ internal class ReceiptLayout(
                 ),
             )
             // Keep the total with the last item when they can fit together on a page.
-            val spaceAfter = if (index == savedBill.lines.lastIndex && row.height + total.height <= bodyHeight) {
+            val spaceAfter = if (
+                bodyHeight != null && index == savedBill.lines.lastIndex && row.height + total.height <= bodyHeight
+            ) {
                 total.height
             } else {
                 0
@@ -101,28 +109,46 @@ internal class ReceiptLayout(
     }
 
     fun drawPage(canvas: Canvas, index: Int) {
+        drawHeader(canvas)
+        var y = headerHeight.toFloat()
+        for (row in pages[index]) {
+            drawRow(canvas, row, y)
+            y += row.height
+        }
+    }
+
+    fun drawRoll(drawSection: (Int, (Canvas) -> Unit) -> Unit) {
+        drawSection(headerHeight, ::drawHeader)
+        for (row in pages.single()) {
+            drawSection(row.height) { canvas -> drawRow(canvas, row, 0f) }
+        }
+        drawSection(PAGE_PADDING) {}
+    }
+
+    private val headerHeight: Int get() = PAGE_PADDING + header.sumOf { it.height } + RULE_HEIGHT
+
+    private fun drawHeader(canvas: Canvas) {
         var y = PAGE_PADDING.toFloat()
         for (line in header) {
             line.drawAt(canvas, leftInset, y)
             y += line.height
         }
         drawRule(canvas, y)
-        y += RULE_HEIGHT
+    }
 
-        for (row in pages[index]) {
-            if (row.divider) {
-                drawRule(canvas, y)
-                y += RULE_HEIGHT
-            }
-            row.title?.let { title ->
-                title.drawAt(canvas, leftInset, y)
-                y += title.height
-            }
-            val body = row.body
-            body.left.drawAt(canvas, leftInset, y)
-            body.right.drawAt(canvas, leftInset + body.rightX, y + body.rightY)
-            y += body.height + ROW_SPACING
+    private fun drawRow(canvas: Canvas, row: ReceiptRow, top: Float) {
+        var y = top
+        if (row.divider) {
+            drawRule(canvas, y)
+            y += RULE_HEIGHT
         }
+        row.title?.let { title ->
+            title.drawAt(canvas, leftInset, y)
+            y += title.height
+        }
+        val body = row.body
+        body.left.drawAt(canvas, leftInset, y)
+        body.right.drawAt(canvas, leftInset + body.rightX, y + body.rightY)
     }
 
     private fun columns(left: String, leftStyle: TextPaint, right: String, rightStyle: TextPaint): Columns {
