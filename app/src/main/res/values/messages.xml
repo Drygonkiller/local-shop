@@ -7,4 +7,6 @@
     <string name="photo_save_failed">Could not save photo.\nतस्बिर सुरक्षित गर्न सकिएन।</string>
     <string name="bill_save_failed">Could not save bill. Try again.\nबिल सुरक्षित गर्न सकिएन। फेरि प्रयास गर्नुहोस्।</string>
     <string name="bill_open_failed">Could not open bill.\nबिल खोल्न सकिएन।</string>
+    <string name="report_print_unavailable">Could not print report.\nप्रतिवेदन छाप्न सकिएन।</string>
+    <string name="share_unavailable">Could not open sharing.\nसाझा गर्ने विकल्प खोल्न सकिएन।</string>
 </resources>

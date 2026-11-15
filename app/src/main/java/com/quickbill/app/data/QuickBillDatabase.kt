@@ -7,6 +7,7 @@ import androidx.room.Insert
 import androidx.room.Query
 import androidx.room.Room
 import androidx.room.RoomDatabase
+import androidx.room.Transaction
 import androidx.room.Upsert
 import kotlinx.coroutines.flow.Flow
 
@@ -58,6 +59,10 @@ interface QuickBillDao {
 
     @Query("SELECT * FROM bills ORDER BY billNumber DESC")
     fun observeBills(): Flow<List<Bill>>
+
+    @Transaction
+    @Query("SELECT * FROM bills WHERE createdAtMillis >= :startMillis AND createdAtMillis < :endMillis")
+    fun observeDailyBills(startMillis: Long, endMillis: Long): Flow<List<DailySalesBill>>
 
     @Query("SELECT * FROM bills WHERE billNumber = :billNumber")
     suspend fun getBill(billNumber: Long): Bill?

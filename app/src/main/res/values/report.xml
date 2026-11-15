@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="report_today">Today</string>
+    <string name="report_today_ne">आज</string>
+    <string name="daily_sales">Daily sales</string>
+    <string name="daily_sales_ne">दैनिक बिक्री</string>
+    <string name="report_total_sales">Total sales</string>
+    <string name="report_total_sales_ne">कुल बिक्री</string>
+    <string name="report_bill_count">Bills</string>
+    <string name="report_bill_count_ne">बिल</string>
+    <string name="report_average_bill">Average bill</string>
+    <string name="report_average_bill_ne">औसत बिल</string>
+    <string name="report_top_items">Top items by revenue</string>
+    <string name="report_top_items_ne">बिक्री रकमअनुसार शीर्ष सामान</string>
+    <string name="report_no_top_items">No favourite items sold</string>
+    <string name="report_no_top_items_ne">मनपर्ने सामानको बिक्री भएको छैन</string>
+    <string name="report_bills_today">Today’s bills</string>
+    <string name="report_bills_today_ne">आजका बिल</string>
+    <string name="report_no_bills">No bills today</string>
+    <string name="report_no_bills_ne">आज कुनै बिल छैन</string>
+    <string name="report_print">Print report</string>
+    <string name="report_print_ne">प्रतिवेदन छाप्नुहोस्</string>
+    <string name="saved_bill_title">Saved bill</string>
+    <string name="saved_bill_title_ne">सुरक्षित बिल</string>
+    <string name="saved_bill_open">Open bill %1$d / बिल %1$d खोल्नुहोस्</string>
+    <string name="saved_bill_pan">PAN / प्यान %1$s</string>
+    <string name="saved_bill_line_quantity">%1$d × %2$s</string>
+    <string name="saved_bill_missing">Bill unavailable</string>
+    <string name="saved_bill_missing_ne">बिल उपलब्ध छैन</string>
+    <string name="share">Share</string>
+    <string name="share_ne">साझा गर्नुहोस्</string>
+</resources>

@@ -73,11 +73,11 @@ class BluetoothThermalPrinter(context: Context) {
         }
     }
 
-    /** Returns null after the receipt bytes are sent. The writer runs on an IO thread. */
+    /** Returns null after the print data is sent. The writer runs on an IO thread. */
     @SuppressLint("MissingPermission")
     suspend fun print(
         printer: ThermalPrinter,
-        writeReceipt: (OutputStream) -> Unit,
+        writeDocument: (OutputStream) -> Unit,
     ): ThermalPrintFailure? = printMutex.withLock {
         withContext(Dispatchers.IO) {
             if (!hasConnectPermission()) return@withContext ThermalPrintFailure.PermissionRequired
@@ -94,7 +94,7 @@ class BluetoothThermalPrinter(context: Context) {
                     }
                     val sent = socket.runWithinTimeout(WRITE_TIMEOUT_MILLIS) {
                         val output = socket.outputStream
-                        writeReceipt(output)
+                        writeDocument(output)
                         output.flush()
                     }
                     if (sent) null else ThermalPrintFailure.TimedOut
@@ -106,7 +106,7 @@ class BluetoothThermalPrinter(context: Context) {
             } catch (cancelled: CancellationException) {
                 throw cancelled
             } catch (error: Exception) {
-                Log.w(PRINT_TAG, "Could not send Bluetooth receipt", error)
+                Log.w(PRINT_TAG, "Could not send Bluetooth print data", error)
                 if (hasConnectPermission()) ThermalPrintFailure.ConnectionFailed
                 else ThermalPrintFailure.PermissionRequired
             }

@@ -1,6 +1,11 @@
 package com.quickbill.app.data
 
 import androidx.room.withTransaction
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.flow.map
 
 class QuickBillRepository(private val database: QuickBillDatabase) {
     private val dao = database.dao()
@@ -8,6 +13,14 @@ class QuickBillRepository(private val database: QuickBillDatabase) {
     val favourites = dao.observeFavourites()
     val shop = dao.observeShop()
     val history = dao.observeBills()
+
+    fun observeDailySales(day: NepalDay): Flow<DailySales> =
+        dao.observeDailyBills(day.startMillis, day.endMillis)
+            .map { summarizeDailySales(day, it) }
+            .distinctUntilChanged()
+            .flowOn(Dispatchers.Default)
+
+    suspend fun getShop(): ShopDetails? = dao.getShop()
 
     suspend fun addFavourite(name: String, unitPricePaisa: Long): Long {
         validateFavouriteFields(name, unitPricePaisa)

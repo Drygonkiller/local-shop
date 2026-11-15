@@ -8,12 +8,10 @@ import android.os.CancellationSignal
 import android.text.Layout
 import android.text.StaticLayout
 import android.text.TextPaint
-import com.quickbill.app.data.SavedBill
+import com.quickbill.app.data.formatNepalBillDateTime
+import com.quickbill.app.data.formatNepalBillTime
+import com.quickbill.app.data.formatNepalReportDate
 import com.quickbill.app.data.formatNpr
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
-import java.util.TimeZone
 import kotlin.math.ceil
 
 private const val PAGE_PADDING = 6
@@ -21,13 +19,12 @@ private const val RECEIPT_MAX_WIDTH = 260
 private const val COLUMN_GAP = 8
 private const val RULE_HEIGHT = 6
 
-/** Lays out one receipt for a paginated PDF or a continuous thermal roll. */
+/** Lays out a document for a paginated PDF or a continuous thermal roll. */
 internal class ReceiptLayout(
-    savedBill: SavedBill,
+    document: PrintDocument,
     paperWidth: Int,
     paperHeight: Int?,
     cancellationSignal: CancellationSignal?,
-    isTest: Boolean = false,
 ) {
     private val width = (paperWidth - PAGE_PADDING * 2).coerceAtMost(RECEIPT_MAX_WIDTH)
     private val leftInset = (paperWidth - width) / 2f
@@ -47,65 +44,118 @@ internal class ReceiptLayout(
 
     init {
         require(width >= 72) { "Printable width is too small" }
-        val bill = savedBill.bill
-        val date = SimpleDateFormat("d MMM yyyy, HH:mm", Locale.ENGLISH).apply {
-            timeZone = TimeZone.getTimeZone("Asia/Kathmandu")
-        }.format(Date(bill.createdAtMillis))
-
-        header = listOf(
-            text(bill.shopName, titleStyle, alignment = Layout.Alignment.ALIGN_CENTER),
-            text("PAN / प्यान ${bill.shopPan}", detailStyle),
-            text(
-                if (isTest) "Test receipt / परीक्षण बिल" else "Bill no. / बिल नं. ${bill.billNumber}",
-                if (isTest) amountStyle else detailStyle,
-            ),
-            text("Date / मिति $date", detailStyle),
-        )
-
-        val bodyHeight = paperHeight?.let { it - headerHeight - PAGE_PADDING }
-        val total = ReceiptRow(
-            body = columns("Total / जम्मा", totalStyle, formatNpr(bill.totalPaisa), totalStyle),
-            divider = true,
-        )
-        val receiptPages = mutableListOf<List<ReceiptRow>>()
-        var page = mutableListOf<ReceiptRow>()
-        var available = bodyHeight ?: 0
-
-        fun addRow(row: ReceiptRow, spaceAfter: Int = 0) {
-            if (bodyHeight != null) {
-                require(row.height <= bodyHeight) { "Printable height is too small" }
-                if (row.height + spaceAfter > available) {
-                    receiptPages.add(page)
-                    page = mutableListOf()
-                    available = bodyHeight
-                }
-                available -= row.height
-            }
-            page.add(row)
+        header = when (document) {
+            is PrintDocument.Receipt -> receiptHeader(document)
+            is PrintDocument.Report -> reportHeader(document)
         }
+        val rows = when (document) {
+            is PrintDocument.Receipt -> receiptRows(document, cancellationSignal)
+            is PrintDocument.Report -> reportRows(document, cancellationSignal)
+        }
+        pages = if (paperHeight == null) listOf(rows) else paginate(rows, paperHeight)
+    }
 
+    private fun receiptHeader(document: PrintDocument.Receipt): List<StaticLayout> {
+        val bill = document.bill.bill
+        return listOf(
+            text(bill.shopName, titleStyle, alignment = Layout.Alignment.ALIGN_CENTER),
+            text(BillText.pan(bill.shopPan), detailStyle),
+            text(
+                if (document.isTest) "Test receipt / परीक्षण बिल" else BillText.number(bill.billNumber),
+                if (document.isTest) amountStyle else detailStyle,
+            ),
+            text(BillText.date(formatNepalBillDateTime(bill.createdAtMillis)), detailStyle),
+        )
+    }
+
+    private fun receiptRows(
+        document: PrintDocument.Receipt,
+        cancellationSignal: CancellationSignal?,
+    ): List<ReceiptRow> = buildList {
+        val savedBill = document.bill
         for ((index, line) in savedBill.lines.withIndex()) {
             cancellationSignal?.throwIfCanceled()
-            val row = ReceiptRow(
+            add(ReceiptRow(
                 title = text(line.name, nameStyle),
                 body = columns(
-                    "${line.quantity} × ${formatNpr(line.unitPricePaisa)}", detailStyle,
+                    BillText.quantityAndUnitPrice(line.quantity, line.unitPricePaisa), detailStyle,
                     formatNpr(line.totalPaisa), amountStyle,
                 ),
-            )
-            // Keep the total with the last item when they can fit together on a page.
-            val spaceAfter = if (
-                bodyHeight != null && index == savedBill.lines.lastIndex && row.height + total.height <= bodyHeight
-            ) {
-                total.height
-            } else {
-                0
-            }
-            addRow(row, spaceAfter)
+                keepWithNext = index == savedBill.lines.lastIndex,
+            ))
         }
-        addRow(total)
-        receiptPages.add(page)
-        pages = receiptPages
+        add(ReceiptRow(
+            body = columns(BillText.Total, totalStyle, formatNpr(savedBill.bill.totalPaisa), totalStyle),
+            divider = true,
+        ))
+    }
+
+    private fun reportHeader(document: PrintDocument.Report): List<StaticLayout> = buildList {
+        add(text("Daily sales / दैनिक बिक्री", titleStyle, alignment = Layout.Alignment.ALIGN_CENTER))
+        document.shop?.let { shop ->
+            add(text(shop.name, totalStyle, alignment = Layout.Alignment.ALIGN_CENTER))
+            add(text(BillText.pan(shop.pan), detailStyle))
+        }
+        add(text(BillText.date(formatNepalReportDate(document.report.day)), detailStyle))
+    }
+
+    private fun reportRows(
+        document: PrintDocument.Report,
+        cancellationSignal: CancellationSignal?,
+    ): List<ReceiptRow> = buildList {
+        val report = document.report
+        add(ReceiptRow(body = columns("Total sales / कुल बिक्री", totalStyle, formatNpr(report.totalPaisa), totalStyle)))
+        add(ReceiptRow(body = columns("Bills / बिल", nameStyle, report.billCount.toString(), amountStyle)))
+        add(ReceiptRow(body = columns("Average bill / औसत बिल", nameStyle, formatNpr(report.averagePaisa), amountStyle)))
+
+        add(sectionHeading("Top items by revenue / बिक्री रकमअनुसार शीर्ष सामान"))
+        if (report.topItems.isEmpty()) {
+            add(ReceiptRow(title = text("No favourite items sold / मनपर्ने सामानको बिक्री भएको छैन", detailStyle)))
+        }
+        for (item in report.topItems) {
+            cancellationSignal?.throwIfCanceled()
+            add(ReceiptRow(body = columns(item.name, nameStyle, formatNpr(item.totalPaisa), amountStyle)))
+        }
+
+        add(sectionHeading("Today’s bills / आजका बिल"))
+        if (report.bills.isEmpty()) {
+            add(ReceiptRow(title = text("No bills today / आज कुनै बिल छैन", detailStyle)))
+        }
+        for (bill in report.bills) {
+            cancellationSignal?.throwIfCanceled()
+            add(ReceiptRow(body = columns(
+                "${BillText.number(bill.billNumber)} · ${formatNepalBillTime(bill.createdAtMillis)}", detailStyle,
+                formatNpr(bill.totalPaisa), amountStyle,
+            )))
+        }
+    }
+
+    private fun sectionHeading(value: String) = ReceiptRow(
+        title = text(value, amountStyle),
+        divider = true,
+        keepWithNext = true,
+    )
+
+    private fun paginate(rows: List<ReceiptRow>, paperHeight: Int): List<List<ReceiptRow>> {
+        val bodyHeight = paperHeight - headerHeight - PAGE_PADDING
+        val documentPages = mutableListOf<List<ReceiptRow>>()
+        var page = mutableListOf<ReceiptRow>()
+        var available = bodyHeight
+
+        for ((index, row) in rows.withIndex()) {
+            require(row.height <= bodyHeight) { "Printable height is too small" }
+            val pairHeight = row.height + (rows.getOrNull(index + 1)?.height ?: 0)
+            val needed = if (row.keepWithNext && pairHeight <= bodyHeight) pairHeight else row.height
+            if (needed > available) {
+                documentPages.add(page)
+                page = mutableListOf()
+                available = bodyHeight
+            }
+            page.add(row)
+            available -= row.height
+        }
+        documentPages.add(page)
+        return documentPages
     }
 
     fun drawPage(canvas: Canvas, index: Int) {
@@ -146,9 +196,10 @@ internal class ReceiptLayout(
             title.drawAt(canvas, leftInset, y)
             y += title.height
         }
-        val body = row.body
-        body.left.drawAt(canvas, leftInset, y)
-        body.right.drawAt(canvas, leftInset + body.rightX, y + body.rightY)
+        row.body?.let { body ->
+            body.left.drawAt(canvas, leftInset, y)
+            body.right.drawAt(canvas, leftInset + body.rightX, y + body.rightY)
+        }
     }
 
     private fun columns(left: String, leftStyle: TextPaint, right: String, rightStyle: TextPaint): Columns {
@@ -186,8 +237,13 @@ internal class ReceiptLayout(
         val height: Int get() = maxOf(left.height, rightY + right.height)
     }
 
-    private data class ReceiptRow(val body: Columns, val title: StaticLayout? = null, val divider: Boolean = false) {
-        val height: Int get() = (title?.height ?: 0) + body.height + ROW_SPACING + if (divider) RULE_HEIGHT else 0
+    private data class ReceiptRow(
+        val body: Columns? = null,
+        val title: StaticLayout? = null,
+        val divider: Boolean = false,
+        val keepWithNext: Boolean = false,
+    ) {
+        val height: Int get() = (title?.height ?: 0) + (body?.height ?: 0) + ROW_SPACING + if (divider) RULE_HEIGHT else 0
     }
 
     private companion object {

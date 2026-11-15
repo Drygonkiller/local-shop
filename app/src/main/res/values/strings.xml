@@ -41,6 +41,9 @@
     <string name="save_ne">सुरक्षित गर्नुहोस्</string>
     <string name="save_and_print">Save and print</string>
     <string name="save_and_print_ne">सुरक्षित गरेर छाप्नुहोस्</string>
+    <string name="save_and_share">Save and share</string>
+    <string name="save_and_share_ne">सुरक्षित गरेर साझा गर्नुहोस्</string>
+    <string name="share_bill_title">Share bill / बिल साझा गर्नुहोस्</string>
     <string name="cancel">Cancel</string>
     <string name="cancel_ne">रद्द गर्नुहोस्</string>
     <string name="back">Back / पछाडि</string>

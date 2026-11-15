@@ -1,7 +1,9 @@
 package com.quickbill.app.ui
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -14,16 +16,20 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Button
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilledTonalIconButton
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
@@ -31,12 +37,12 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.quickbill.app.R
 import com.quickbill.app.data.Bill
+import com.quickbill.app.data.BillLine
 import com.quickbill.app.data.MAX_QUANTITY
 import com.quickbill.app.data.SaleLine
+import com.quickbill.app.data.SavedBill
+import com.quickbill.app.data.formatNepalBillDateTime
 import com.quickbill.app.data.formatNpr
-import java.text.DateFormat
-import java.util.Date
-import java.util.TimeZone
 
 @Composable
 internal fun BillingScreen(
@@ -166,16 +172,13 @@ internal fun HistoryScreen(
     history: List<Bill>,
     onReprint: (Long) -> Unit,
     canReprint: Boolean,
+    onOpenBill: (Long) -> Unit,
+    onShare: (Long) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     if (history.isEmpty()) {
         EmptyScreen(R.string.empty_history, R.string.empty_history_ne, BillIcon.Receipt, modifier)
         return
-    }
-    val dateFormat = remember {
-        DateFormat.getDateTimeInstance(DateFormat.MEDIUM, DateFormat.SHORT).apply {
-            timeZone = TimeZone.getTimeZone("Asia/Kathmandu")
-        }
     }
     LazyColumn(
         modifier = modifier,
@@ -189,43 +192,218 @@ internal fun HistoryScreen(
                 color = MaterialTheme.colorScheme.surface,
                 border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
             ) {
-                Row(
-                    modifier = Modifier.padding(14.dp),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp),
-                    verticalAlignment = Alignment.CenterVertically,
+                Column {
+                    SavedBillSummary(
+                        bill = bill,
+                        displayDate = formatNepalBillDateTime(bill.createdAtMillis),
+                        onOpenBill = { onOpenBill(bill.billNumber) },
+                    )
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 6.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End),
+                    ) {
+                        OutlinedButton(
+                            onClick = { onShare(bill.billNumber) },
+                            modifier = Modifier.weight(1f, fill = false).heightIn(min = 48.dp),
+                            shape = RoundedCornerShape(12.dp),
+                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 7.dp),
+                        ) {
+                            BilingualLabel(R.string.share, R.string.share_ne, centered = true)
+                        }
+                        OutlinedButton(
+                            onClick = { onReprint(bill.billNumber) },
+                            enabled = canReprint,
+                            modifier = Modifier.weight(1f, fill = false).heightIn(min = 48.dp),
+                            shape = RoundedCornerShape(12.dp),
+                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 7.dp),
+                        ) {
+                            BilingualLabel(R.string.reprint, R.string.reprint_ne, centered = true)
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+internal fun SavedBillSummary(bill: Bill, displayDate: String, onOpenBill: () -> Unit) {
+    val scheme = MaterialTheme.colorScheme
+    Row(
+        modifier = Modifier.fillMaxWidth()
+            .clickable(
+                onClickLabel = stringResource(R.string.saved_bill_open, bill.billNumber),
+                role = Role.Button,
+                onClick = onOpenBill,
+            )
+            .heightIn(min = 56.dp)
+            .padding(horizontal = 14.dp, vertical = 10.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(
+            modifier = Modifier.weight(1f),
+            verticalArrangement = Arrangement.spacedBy(2.dp),
+        ) {
+            Text(
+                text = stringResource(R.string.bill_number, bill.billNumber),
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.SemiBold,
+            )
+            Text(displayDate, style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant)
+        }
+        Text(
+            text = formatNpr(bill.totalPaisa),
+            modifier = Modifier.weight(0.85f),
+            style = MaterialTheme.typography.titleMedium,
+            color = scheme.primary,
+            fontWeight = FontWeight.Bold,
+            textAlign = TextAlign.End,
+        )
+        Text(
+            text = "›",
+            modifier = Modifier.clearAndSetSemantics {},
+            style = MaterialTheme.typography.titleLarge,
+            color = scheme.onSurfaceVariant,
+        )
+    }
+}
+
+@Composable
+internal fun SavedBillScreen(
+    bill: SavedBill?,
+    onShare: (Long) -> Unit,
+    onReprint: (Long) -> Unit,
+    canReprint: Boolean,
+    isBillMissing: Boolean = false,
+    modifier: Modifier = Modifier,
+) {
+    if (bill == null) {
+        if (isBillMissing) {
+            EmptyScreen(R.string.saved_bill_missing, R.string.saved_bill_missing_ne, BillIcon.Receipt, modifier)
+        } else {
+            ReportLoading(modifier)
+        }
+        return
+    }
+    val header = bill.bill
+    val scheme = MaterialTheme.colorScheme
+    Column(modifier) {
+        LazyColumn(
+            modifier = Modifier.weight(1f),
+            contentPadding = PaddingValues(16.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            item {
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(16.dp),
+                    color = scheme.primaryContainer,
+                    contentColor = scheme.onPrimaryContainer,
                 ) {
                     Column(
-                        modifier = Modifier.weight(1f),
-                        verticalArrangement = Arrangement.spacedBy(4.dp),
+                        modifier = Modifier.padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(5.dp),
                     ) {
+                        Text(header.shopName, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                        Text(stringResource(R.string.saved_bill_pan, header.shopPan))
                         Text(
-                            text = stringResource(R.string.bill_number, bill.billNumber),
+                            text = stringResource(R.string.bill_number, header.billNumber),
                             style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.SemiBold,
                         )
                         Text(
-                            text = dateFormat.format(Date(bill.createdAtMillis)),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            text = formatNepalBillDateTime(header.createdAtMillis),
+                            style = MaterialTheme.typography.bodyMedium,
                         )
-                        Text(
-                            text = formatNpr(bill.totalPaisa),
-                            style = MaterialTheme.typography.titleMedium,
-                            color = MaterialTheme.colorScheme.primary,
-                            fontWeight = FontWeight.Bold,
-                        )
+                        HorizontalDivider(Modifier.padding(vertical = 4.dp), color = scheme.outlineVariant)
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            BilingualLabel(
+                                R.string.bill_total,
+                                R.string.bill_total_ne,
+                                modifier = Modifier.weight(1f),
+                                mainStyle = MaterialTheme.typography.titleMedium,
+                            )
+                            Text(
+                                text = formatNpr(header.totalPaisa),
+                                modifier = Modifier.weight(2f),
+                                style = MaterialTheme.typography.headlineSmall,
+                                fontWeight = FontWeight.SemiBold,
+                                textAlign = TextAlign.End,
+                            )
+                        }
                     }
+                }
+            }
+            items(bill.lines, key = { it.position }) { line -> SavedBillLine(line) }
+        }
+        Surface(color = scheme.surface) {
+            Column(Modifier.fillMaxWidth()) {
+                HorizontalDivider(color = scheme.outlineVariant)
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
                     OutlinedButton(
-                        onClick = { onReprint(bill.billNumber) },
+                        onClick = { onShare(header.billNumber) },
+                        modifier = Modifier.weight(1f).heightIn(min = 54.dp),
+                        shape = RoundedCornerShape(14.dp),
+                    ) {
+                        BilingualLabel(R.string.share, R.string.share_ne, centered = true)
+                    }
+                    Button(
+                        onClick = { onReprint(header.billNumber) },
                         enabled = canReprint,
-                        modifier = Modifier.heightIn(min = 48.dp),
-                        shape = RoundedCornerShape(12.dp),
-                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 7.dp),
+                        modifier = Modifier.weight(1f).heightIn(min = 54.dp),
+                        shape = RoundedCornerShape(14.dp),
                     ) {
                         BilingualLabel(R.string.reprint, R.string.reprint_ne, centered = true)
                     }
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun SavedBillLine(line: BillLine) {
+    val scheme = MaterialTheme.colorScheme
+    Surface(
+        shape = RoundedCornerShape(14.dp),
+        color = scheme.surface,
+        border = BorderStroke(1.dp, scheme.outlineVariant),
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(12.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                Text(line.name, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+                Text(
+                    text = stringResource(R.string.saved_bill_line_quantity, line.quantity, formatNpr(line.unitPricePaisa)),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = scheme.onSurfaceVariant,
+                )
+            }
+            Text(
+                text = formatNpr(line.totalPaisa),
+                modifier = Modifier.weight(0.85f),
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                color = scheme.primary,
+                textAlign = TextAlign.End,
+            )
+        }
+    }
+}
+
+@Composable
+internal fun ReportLoading(modifier: Modifier) {
+    Box(modifier, contentAlignment = Alignment.Center) {
+        CircularProgressIndicator()
     }
 }

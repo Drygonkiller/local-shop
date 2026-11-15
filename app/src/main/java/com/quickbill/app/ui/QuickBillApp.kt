@@ -11,6 +11,7 @@ import androidx.annotation.StringRes
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -35,6 +36,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -55,14 +57,20 @@ import com.quickbill.app.QuickBillUiState
 import com.quickbill.app.R
 import com.quickbill.app.calculator.CalculatorKey
 import com.quickbill.app.data.Bill
+import com.quickbill.app.data.DailySales
 import com.quickbill.app.data.FavouriteItem
+import com.quickbill.app.data.SavedBill
 import com.quickbill.app.data.formatNpr
 import com.quickbill.app.printing.ThermalPrinting
 import kotlinx.coroutines.flow.Flow
 
-private enum class Screen { Home, Bill, History }
-private enum class BillingMode { Favourites, Calculator }
-private enum class EntryDialog { AddItem, Shop, ShopForPrint }
+private enum class Screen { Home, Bill, History, SavedBill }
+private enum class BillingMode(@param:StringRes val label: Int, @param:StringRes val nepali: Int) {
+    Favourites(R.string.favourites, R.string.favourites_ne),
+    Calculator(R.string.mode_calculator, R.string.mode_calculator_ne),
+    Today(R.string.report_today, R.string.report_today_ne),
+}
+private enum class EntryDialog { AddItem, Shop, ShopForPrint, ShopForShare }
 private enum class BillFooterAction(@param:StringRes val label: Int, @param:StringRes val nepali: Int) {
     ViewBill(R.string.view_bill, R.string.view_bill_ne),
     AddItems(R.string.add_items, R.string.add_items_ne),
@@ -78,6 +86,7 @@ private class OpenLocalPhoto : ActivityResultContracts.OpenDocument() {
 internal fun QuickBillApp(
     state: QuickBillUiState,
     history: Flow<List<Bill>>,
+    dailySales: Flow<DailySales>,
     thermalPrinting: ThermalPrinting,
     onAddFavorite: (String, Long, (Boolean) -> Unit) -> Unit,
     onEditFavourite: (Long, String, Long, (Boolean) -> Unit) -> Unit,
@@ -89,11 +98,17 @@ internal fun QuickBillApp(
     onPrintCalculatorBill: () -> Unit,
     onSaveShop: (String, String, (Boolean) -> Unit) -> Unit,
     onReprint: (Long) -> Unit,
+    loadSavedBill: suspend (Long) -> SavedBill?,
+    onShareSavedBill: (Long) -> Unit,
+    onShareDraftBill: () -> Unit,
+    onPrintReport: (DailySales) -> Unit,
     onSetPhoto: (Long, String?) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     var screen by rememberSaveable { mutableStateOf(Screen.Home) }
     var mode by rememberSaveable { mutableStateOf(BillingMode.Favourites) }
+    var openedBillNumber by rememberSaveable { mutableStateOf<Long?>(null) }
+    var returnTo by rememberSaveable { mutableStateOf(Screen.Home) }
     var entryDialog by rememberSaveable { mutableStateOf<EntryDialog?>(null) }
     var showThermalSettings by rememberSaveable { mutableStateOf(false) }
     var favouriteMenuId by rememberSaveable { mutableStateOf<Long?>(null) }
@@ -126,13 +141,30 @@ internal fun QuickBillApp(
         }
     }
     val inCalculator = screen == Screen.Home && mode == BillingMode.Calculator
+    val inToday = screen == Screen.Home && mode == BillingMode.Today
+    val openBill: (Long) -> Unit = { number ->
+        returnTo = screen
+        openedBillNumber = number
+        screen = Screen.SavedBill
+    }
+    val goBack: () -> Unit = {
+        when (screen) {
+            Screen.SavedBill -> {
+                screen = returnTo
+                openedBillNumber = null
+            }
+            Screen.Home -> mode = BillingMode.Favourites
+            Screen.Bill, Screen.History -> screen = Screen.Home
+        }
+    }
     val checkout = if (inCalculator) onPrintCalculatorBill else onPrintBill
     val requestPrint: () -> Unit = {
         if (state.shop == null) entryDialog = EntryDialog.ShopForPrint else checkout()
     }
-    BackHandler(enabled = screen != Screen.Home || inCalculator) {
-        if (screen != Screen.Home) screen = Screen.Home else mode = BillingMode.Favourites
+    val requestShare: () -> Unit = {
+        if (state.shop == null) entryDialog = EntryDialog.ShopForShare else onShareDraftBill()
     }
+    BackHandler(enabled = screen != Screen.Home || mode != BillingMode.Favourites, onBack = goBack)
     LaunchedEffect(state.lines.isEmpty()) {
         if (screen == Screen.Bill && state.lines.isEmpty()) screen = Screen.Home
     }
@@ -142,7 +174,7 @@ internal fun QuickBillApp(
             Header(
                 screen = screen,
                 canEditShop = !state.isLoading,
-                onBack = { screen = Screen.Home },
+                onBack = goBack,
                 onShop = { entryDialog = EntryDialog.Shop },
                 onHistory = { screen = Screen.History },
             )
@@ -162,15 +194,14 @@ internal fun QuickBillApp(
             ) {
                 val bodyModifier = Modifier.widthIn(max = 760.dp).fillMaxSize()
                 when (screen) {
-                    Screen.Home -> if (inCalculator) {
-                        CalculatorScreen(
+                    Screen.Home -> when (mode) {
+                        BillingMode.Calculator -> CalculatorScreen(
                             draft = state.calculator,
                             enabled = !state.isSavingBill,
                             onKey = onCalculatorKey,
                             modifier = bodyModifier,
                         )
-                    } else {
-                        FavouritesScreen(
+                        BillingMode.Favourites -> FavouritesScreen(
                             favourites = state.favourites,
                             lines = state.lines,
                             isLoading = state.isLoading,
@@ -180,6 +211,16 @@ internal fun QuickBillApp(
                             onManageFavourite = { item -> favouriteMenuId = item.id },
                             modifier = bodyModifier,
                         )
+                        BillingMode.Today -> {
+                            val report by dailySales.collectAsStateWithLifecycle(initialValue = null)
+                            DailySalesScreen(
+                                report = report,
+                                onOpenBill = openBill,
+                                onPrintReport = onPrintReport,
+                                canPrint = !printerBusy && !state.isSavingBill,
+                                modifier = bodyModifier,
+                            )
+                        }
                     }
                     Screen.Bill -> BillingScreen(
                         lines = state.lines,
@@ -192,13 +233,33 @@ internal fun QuickBillApp(
                         HistoryScreen(
                             history = savedBills,
                             onReprint = onReprint,
+                            onOpenBill = openBill,
+                            onShare = onShareSavedBill,
                             canReprint = !printerBusy && !state.isSavingBill,
                             modifier = bodyModifier,
                         )
                     }
+                    Screen.SavedBill -> openedBillNumber?.let { number ->
+                        key(number) {
+                            var bill by remember { mutableStateOf<SavedBill?>(null) }
+                            var hasLoaded by remember { mutableStateOf(false) }
+                            LaunchedEffect(number) {
+                                bill = loadSavedBill(number)
+                                hasLoaded = true
+                            }
+                            SavedBillScreen(
+                                bill = bill,
+                                onShare = onShareSavedBill,
+                                onReprint = onReprint,
+                                canReprint = !printerBusy && !state.isSavingBill,
+                                isBillMissing = hasLoaded && bill == null,
+                                modifier = bodyModifier,
+                            )
+                        }
+                    }
                 }
             }
-            if (screen != Screen.History) {
+            if ((screen == Screen.Home && !inToday) || screen == Screen.Bill) {
                 BillFooter(
                     totalPaisa = if (inCalculator) state.calculator.totalPaisa else state.totalPaisa,
                     canPrint = !state.isLoading && if (inCalculator) {
@@ -216,6 +277,7 @@ internal fun QuickBillApp(
                     onSecondaryClick = {
                         screen = if (screen == Screen.Home) Screen.Bill else Screen.Home
                     },
+                    onShare = if (screen == Screen.Bill) requestShare else null,
                     onPrint = requestPrint,
                 )
             }
@@ -227,9 +289,10 @@ internal fun QuickBillApp(
             onDismiss = { entryDialog = null },
             onSave = onAddFavorite,
         )
-        EntryDialog.Shop, EntryDialog.ShopForPrint -> ShopDialog(
+        EntryDialog.Shop, EntryDialog.ShopForPrint, EntryDialog.ShopForShare -> ShopDialog(
             shop = state.shop,
             forPrint = entryDialog == EntryDialog.ShopForPrint,
+            forShare = entryDialog == EntryDialog.ShopForShare,
             onDismiss = { entryDialog = null },
             onSave = onSaveShop,
             onThermalPrinter = if (entryDialog == EntryDialog.Shop) {
@@ -238,9 +301,13 @@ internal fun QuickBillApp(
                 null
             },
             onSaved = {
-                val resumePrint = entryDialog == EntryDialog.ShopForPrint
+                val completed = entryDialog
                 entryDialog = null
-                if (resumePrint) checkout()
+                when (completed) {
+                    EntryDialog.ShopForPrint -> checkout()
+                    EntryDialog.ShopForShare -> onShareDraftBill()
+                    else -> Unit
+                }
             },
         )
         null -> Unit
@@ -279,18 +346,14 @@ private fun BillingTabs(
         modifier = modifier,
         containerColor = MaterialTheme.colorScheme.surface,
     ) {
-        Tab(
-            selected = selected == BillingMode.Favourites,
-            enabled = enabled,
-            onClick = { onSelect(BillingMode.Favourites) },
-            text = { BilingualLabel(R.string.favourites, R.string.favourites_ne, centered = true) },
-        )
-        Tab(
-            selected = selected == BillingMode.Calculator,
-            enabled = enabled,
-            onClick = { onSelect(BillingMode.Calculator) },
-            text = { BilingualLabel(R.string.mode_calculator, R.string.mode_calculator_ne, centered = true) },
-        )
+        for (mode in BillingMode.entries) {
+            Tab(
+                selected = selected == mode,
+                enabled = enabled,
+                onClick = { onSelect(mode) },
+                text = { BilingualLabel(mode.label, mode.nepali, centered = true) },
+            )
+        }
     }
 }
 
@@ -322,6 +385,7 @@ private fun Header(
                     Screen.Home -> R.string.app_name to R.string.app_name_ne
                     Screen.Bill -> R.string.current_bill to R.string.current_bill_ne
                     Screen.History -> R.string.history to R.string.history_ne
+                    Screen.SavedBill -> R.string.saved_bill_title to R.string.saved_bill_title_ne
                 }
                 BilingualLabel(
                     title.first,
@@ -371,6 +435,7 @@ private fun BillFooter(
     isPrinting: Boolean,
     secondaryAction: BillFooterAction?,
     onSecondaryClick: () -> Unit,
+    onShare: (() -> Unit)?,
     onPrint: () -> Unit,
 ) {
     Surface(color = MaterialTheme.colorScheme.surface) {
@@ -407,8 +472,21 @@ private fun BillFooter(
                             enabled = !isSaving && (canPrint || secondaryAction == BillFooterAction.AddItems),
                             modifier = Modifier.weight(1f).heightIn(min = 58.dp),
                             shape = RoundedCornerShape(14.dp),
+                            contentPadding = if (onShare == null) PaddingValues(horizontal = 16.dp, vertical = 8.dp)
+                            else PaddingValues(horizontal = 6.dp, vertical = 8.dp),
                         ) {
                             BilingualLabel(secondaryAction.label, secondaryAction.nepali, centered = true)
+                        }
+                    }
+                    if (onShare != null) {
+                        OutlinedButton(
+                            onClick = onShare,
+                            enabled = canPrint && !isSaving,
+                            modifier = Modifier.weight(1f).heightIn(min = 58.dp),
+                            shape = RoundedCornerShape(14.dp),
+                            contentPadding = PaddingValues(horizontal = 6.dp, vertical = 8.dp),
+                        ) {
+                            BilingualLabel(R.string.share, R.string.share_ne, centered = true)
                         }
                     }
                     Button(
@@ -416,15 +494,20 @@ private fun BillFooter(
                         enabled = canPrint && !isSaving && !isPrinting,
                         modifier = Modifier.weight(1.25f).heightIn(min = 58.dp),
                         shape = RoundedCornerShape(14.dp),
+                        contentPadding = if (onShare == null) PaddingValues(horizontal = 16.dp, vertical = 8.dp)
+                        else PaddingValues(horizontal = 6.dp, vertical = 8.dp),
                     ) {
-                        BillIcon(BillIcon.Print, size = 21.dp)
-                        Spacer(Modifier.width(8.dp))
+                        if (onShare == null) {
+                            BillIcon(BillIcon.Print, size = 21.dp)
+                            Spacer(Modifier.width(8.dp))
+                        }
                         if (isPrinting) {
                             Text(stringResource(R.string.thermal_sending))
                         } else {
                             BilingualLabel(
                                 if (isSaving) R.string.saving_bill else R.string.print_bill,
                                 if (isSaving) R.string.saving_bill_ne else R.string.print_bill_ne,
+                                centered = onShare != null,
                             )
                         }
                     }

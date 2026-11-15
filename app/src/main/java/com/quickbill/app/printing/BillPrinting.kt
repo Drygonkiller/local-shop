@@ -14,19 +14,22 @@ import android.print.PrintDocumentInfo
 import android.print.PrintManager
 import android.print.pdf.PrintedPdfDocument
 import android.util.Log
-import com.quickbill.app.data.SavedBill
+import com.quickbill.app.data.formatNepalReportDate
 import java.util.concurrent.Executors
 
-/** Opens the device's print dialog for a bill that is already saved. */
-fun printBill(activity: Activity, savedBill: SavedBill): Boolean {
+/** Opens the device's print dialog for a receipt or daily report. */
+fun printDocument(activity: Activity, document: PrintDocument): Boolean {
     if (!activity.packageManager.hasSystemFeature(PackageManager.FEATURE_PRINTING)) return false
     val manager = activity.getSystemService(PrintManager::class.java) ?: return false
-    val jobName = "Quick Bill ${savedBill.bill.billNumber}"
+    val jobName = when (document) {
+        is PrintDocument.Receipt -> if (document.isTest) "Quick Bill Test" else "Quick Bill ${document.bill.bill.billNumber}"
+        is PrintDocument.Report -> "Quick Bill Daily Sales ${formatNepalReportDate(document.report.day)}"
+    }
     val attributes = PrintAttributes.Builder()
         .setMediaSize(PrintAttributes.MediaSize.ISO_A6)
         .setColorMode(PrintAttributes.COLOR_MODE_MONOCHROME)
         .build()
-    val adapter = BillPrintAdapter(activity.applicationContext, savedBill)
+    val adapter = DocumentPrintAdapter(activity.applicationContext, document, jobName)
 
     return try {
         // PrintManager can return null when the system cannot launch its print dialog.
@@ -45,12 +48,13 @@ fun printBill(activity: Activity, savedBill: SavedBill): Boolean {
 private const val PRINT_TAG = "QuickBillPrint"
 private val printExecutor = Executors.newSingleThreadExecutor()
 
-private class BillPrintAdapter(
+private class DocumentPrintAdapter(
     private val context: Context,
-    private val savedBill: SavedBill,
+    private val content: PrintDocument,
+    private val jobName: String,
 ) : PrintDocumentAdapter() {
     // Accessed only by the print executor, including when the system changes paper size.
-    private var currentLayout: BillLayout? = null
+    private var currentLayout: DocumentLayout? = null
 
     override fun onLayout(
         oldAttributes: PrintAttributes?,
@@ -69,14 +73,14 @@ private class BillPrintAdapter(
                     val document = PrintedPdfDocument(context, newAttributes)
                     try {
                         val bounds = document.pageContentRect
-                        val receipt = ReceiptLayout(savedBill, bounds.width(), bounds.height(), cancellationSignal)
-                        BillLayout(newAttributes, receipt)
+                        val receipt = ReceiptLayout(content, bounds.width(), bounds.height(), cancellationSignal)
+                        DocumentLayout(newAttributes, receipt)
                     } finally {
                         document.close()
                     }
                 }
                 cancellationSignal?.throwIfCanceled()
-                val info = PrintDocumentInfo.Builder("Quick Bill ${savedBill.bill.billNumber}.pdf")
+                val info = PrintDocumentInfo.Builder("$jobName.pdf")
                     .setContentType(PrintDocumentInfo.CONTENT_TYPE_DOCUMENT)
                     .setPageCount(layout.receipt.pageCount)
                     .build()
@@ -85,8 +89,11 @@ private class BillPrintAdapter(
             } catch (_: OperationCanceledException) {
                 callback.onLayoutCancelled()
             } catch (error: Exception) {
-                Log.w(PRINT_TAG, "Could not lay out bill for printing", error)
-                callback.onLayoutFailed("Could not fit the bill on this paper. / यो कागजमा बिल अटेन।")
+                Log.w(PRINT_TAG, "Could not lay out document for printing", error)
+                callback.onLayoutFailed(when (content) {
+                    is PrintDocument.Receipt -> "Could not fit the bill on this paper. / यो कागजमा बिल अटेन।"
+                    is PrintDocument.Report -> "Could not fit the report on this paper. / यो कागजमा रिपोर्ट अटेन।"
+                })
             }
         }
     }
@@ -129,11 +136,14 @@ private class BillPrintAdapter(
             } catch (_: OperationCanceledException) {
                 callback.onWriteCancelled()
             } catch (error: Exception) {
-                Log.w(PRINT_TAG, "Could not write bill PDF", error)
-                callback.onWriteFailed("Could not prepare the bill. / बिल तयार गर्न सकिएन।")
+                Log.w(PRINT_TAG, "Could not write document PDF", error)
+                callback.onWriteFailed(when (content) {
+                    is PrintDocument.Receipt -> "Could not prepare the bill. / बिल तयार गर्न सकिएन।"
+                    is PrintDocument.Report -> "Could not prepare the report. / रिपोर्ट तयार गर्न सकिएन।"
+                })
             }
         }
     }
 
-    private data class BillLayout(val attributes: PrintAttributes, val receipt: ReceiptLayout)
+    private data class DocumentLayout(val attributes: PrintAttributes, val receipt: ReceiptLayout)
 }

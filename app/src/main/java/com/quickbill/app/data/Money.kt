@@ -1,6 +1,7 @@
 package com.quickbill.app.data
 
 import java.math.BigDecimal
+import java.math.BigInteger
 import java.text.NumberFormat
 import java.util.Locale
 
@@ -21,12 +22,16 @@ fun parseNpr(input: String): Long? {
     return (rupees * 100 + paisa).takeIf { it <= MAX_PRICE_PAISA }
 }
 
-fun formatNpr(paisa: Long): String {
+fun formatNpr(paisa: Long): String = formatRupees(BigDecimal.valueOf(paisa, 2))
+
+fun formatNpr(paisa: BigInteger): String = formatRupees(BigDecimal(paisa, 2))
+
+private fun formatRupees(rupees: BigDecimal): String {
     val formatter = NumberFormat.getNumberInstance(Locale.US).apply {
-        minimumFractionDigits = if (paisa % 100 == 0L) 0 else 2
+        minimumFractionDigits = if (rupees.stripTrailingZeros().scale() <= 0) 0 else 2
         maximumFractionDigits = 2
     }
-    return "Rs. ${formatter.format(BigDecimal.valueOf(paisa, 2))}"
+    return "Rs. ${formatter.format(rupees)}"
 }
 
 fun normalizePan(input: String): String? = input.trim().withAsciiDigits().takeIf(panPattern::matches)

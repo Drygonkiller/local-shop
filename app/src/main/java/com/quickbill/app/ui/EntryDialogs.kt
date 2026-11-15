@@ -128,6 +128,7 @@ internal fun ItemEditorDialog(
 internal fun ShopDialog(
     shop: ShopDetails?,
     forPrint: Boolean,
+    forShare: Boolean,
     onDismiss: () -> Unit,
     onSave: (String, String, (Boolean) -> Unit) -> Unit,
     onSaved: () -> Unit,
@@ -212,8 +213,16 @@ internal fun ShopDialog(
                 modifier = Modifier.heightIn(min = 48.dp),
             ) {
                 BilingualLabel(
-                    if (forPrint) R.string.save_and_print else R.string.save,
-                    if (forPrint) R.string.save_and_print_ne else R.string.save_ne,
+                    when {
+                        forPrint -> R.string.save_and_print
+                        forShare -> R.string.save_and_share
+                        else -> R.string.save
+                    },
+                    when {
+                        forPrint -> R.string.save_and_print_ne
+                        forShare -> R.string.save_and_share_ne
+                        else -> R.string.save_ne
+                    },
                     centered = true,
                 )
             }

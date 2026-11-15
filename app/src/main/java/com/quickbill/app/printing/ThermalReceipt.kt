@@ -3,20 +3,18 @@ package com.quickbill.app.printing
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Color
-import com.quickbill.app.data.SavedBill
 import java.io.OutputStream
 
 private const val PRINT_WIDTH_DOTS = 384
 private const val DOTS_PER_LAYOUT_UNIT = 2
 private const val STRIP_ROWS = 64
 
-internal fun writeThermalReceipt(output: OutputStream, bill: SavedBill, isTest: Boolean) {
+internal fun writeThermalDocument(output: OutputStream, document: PrintDocument) {
     val layout = ReceiptLayout(
-        savedBill = bill,
+        document = document,
         paperWidth = PRINT_WIDTH_DOTS / DOTS_PER_LAYOUT_UNIT,
         paperHeight = null,
         cancellationSignal = null,
-        isTest = isTest,
     )
     val strip = Bitmap.createBitmap(PRINT_WIDTH_DOTS, STRIP_ROWS, Bitmap.Config.ARGB_8888)
     val canvas = Canvas(strip)

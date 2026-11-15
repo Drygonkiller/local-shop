@@ -48,8 +48,8 @@ internal class ThermalPrinting(context: Context, private val scope: CoroutineSco
     )
     val state = mutableState.asStateFlow()
     val busy: Boolean get() = state.value.printing || state.value.askingPermission
-    private var awaitingPermission: ReceiptRequest? = null
-    private var testAfterSelection: ReceiptRequest? = null
+    private var awaitingPermission: PrintRequest? = null
+    private var testAfterSelection: PrintRequest? = null
     private var activePrints = 0
 
     fun refreshPermission() {
@@ -57,9 +57,9 @@ internal class ThermalPrinting(context: Context, private val scope: CoroutineSco
     }
 
     /** Returns false when the system print sheet should open. */
-    fun printBill(bill: SavedBill): Boolean {
+    fun printDocument(document: PrintDocument): Boolean {
         val printer = state.value.selected ?: return false
-        printOrRequestPermission(ReceiptRequest(bill, printer, isTest = false))
+        printOrRequestPermission(PrintRequest(document, printer))
         return true
     }
 
@@ -79,7 +79,8 @@ internal class ThermalPrinting(context: Context, private val scope: CoroutineSco
             createdAtMillis = System.currentTimeMillis(),
             totalPaisa = line.totalPaisa,
         )
-        printOrRequestPermission(ReceiptRequest(SavedBill(bill, listOf(line)), state.value.selected, isTest = true))
+        val document = PrintDocument.Receipt(SavedBill(bill, listOf(line)), isTest = true)
+        printOrRequestPermission(PrintRequest(document, state.value.selected))
     }
 
     fun choosePrinter() {
@@ -123,10 +124,10 @@ internal class ThermalPrinting(context: Context, private val scope: CoroutineSco
         }
         if (pending == null) return
         if (granted && hasPermission) start(pending)
-        else showFailure(ThermalPrintFailure.PermissionRequired, billSaved = !pending.isTest)
+        else showFailure(ThermalPrintFailure.PermissionRequired, billSaved = pending.billSaved)
     }
 
-    private fun printOrRequestPermission(request: ReceiptRequest) {
+    private fun printOrRequestPermission(request: PrintRequest) {
         refreshPermission()
         if (state.value.hasPermission) {
             start(request)
@@ -134,11 +135,11 @@ internal class ThermalPrinting(context: Context, private val scope: CoroutineSco
             awaitingPermission = request
             mutableState.update { it.copy(askingPermission = true, showRationale = true) }
         } else {
-            showFailure(ThermalPrintFailure.PermissionRequired, billSaved = !request.isTest)
+            showFailure(ThermalPrintFailure.PermissionRequired, billSaved = request.billSaved)
         }
     }
 
-    private fun start(request: ReceiptRequest) {
+    private fun start(request: PrintRequest) {
         val printer = request.printer
         if (printer == null) {
             loadPairedPrinters(test = request)
@@ -150,11 +151,11 @@ internal class ThermalPrinting(context: Context, private val scope: CoroutineSco
         scope.launch {
             try {
                 val failure = transport.print(printer) { output ->
-                    writeThermalReceipt(output, request.bill, request.isTest)
+                    writeThermalDocument(output, request.document)
                 }
                 if (failure != null) {
                     refreshPermission()
-                    showFailure(failure, billSaved = !request.isTest)
+                    showFailure(failure, billSaved = request.billSaved)
                 } else if (request.isTest) {
                     mutableState.update {
                         it.copy(notice = ThermalPrintNotice(R.string.thermal_test_sent, isError = false))
@@ -167,7 +168,7 @@ internal class ThermalPrinting(context: Context, private val scope: CoroutineSco
         }
     }
 
-    private fun loadPairedPrinters(test: ReceiptRequest?) {
+    private fun loadPairedPrinters(test: PrintRequest?) {
         if (state.value.listing) return
         mutableState.update { it.copy(listing = true) }
         scope.launch {
@@ -202,5 +203,8 @@ internal class ThermalPrinting(context: Context, private val scope: CoroutineSco
     private fun hasConnectPermission(): Boolean = Build.VERSION.SDK_INT < Build.VERSION_CODES.S ||
         appContext.checkSelfPermission(Manifest.permission.BLUETOOTH_CONNECT) == PackageManager.PERMISSION_GRANTED
 
-    private data class ReceiptRequest(val bill: SavedBill, val printer: ThermalPrinter?, val isTest: Boolean)
+    private data class PrintRequest(val document: PrintDocument, val printer: ThermalPrinter?) {
+        val isTest: Boolean get() = document is PrintDocument.Receipt && document.isTest
+        val billSaved: Boolean get() = document is PrintDocument.Receipt && !document.isTest
+    }
 }

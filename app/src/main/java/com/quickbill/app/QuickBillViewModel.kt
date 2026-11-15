@@ -7,19 +7,28 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.quickbill.app.calculator.CalculatorDraft
 import com.quickbill.app.calculator.CalculatorKey
+import com.quickbill.app.data.DailySales
 import com.quickbill.app.data.FavouriteItem
 import com.quickbill.app.data.MAX_QUANTITY
 import com.quickbill.app.data.SaleLine
 import com.quickbill.app.data.SavedBill
 import com.quickbill.app.data.ShopDetails
+import com.quickbill.app.data.currentNepalDay
 import com.quickbill.app.data.totalPaisa
+import com.quickbill.app.printing.BillText
+import com.quickbill.app.printing.PrintDocument
 import com.quickbill.app.printing.ThermalPrinting
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -34,8 +43,9 @@ data class QuickBillUiState(
     val isSavingBill: Boolean = false,
 )
 
-sealed interface BillEvent {
-    data class Print(val bill: SavedBill) : BillEvent
+internal sealed interface BillEvent {
+    data class Print(val document: PrintDocument) : BillEvent
+    data class Share(val text: String) : BillEvent
     data class Message(@param:StringRes val message: Int) : BillEvent
 }
 
@@ -48,8 +58,19 @@ class QuickBillViewModel(application: Application) : AndroidViewModel(applicatio
     private val eventChannel = Channel<BillEvent>(Channel.BUFFERED)
     private var reprintJob: Job? = null
 
-    val events = eventChannel.receiveAsFlow()
+    internal val events = eventChannel.receiveAsFlow()
     val history = repository.history
+    @OptIn(ExperimentalCoroutinesApi::class)
+    val dailySales = flow {
+        while (true) {
+            val now = System.currentTimeMillis()
+            val day = currentNepalDay(now)
+            emit(day)
+            // Recheck at Nepal midnight, and periodically in case the device clock changes.
+            delay((day.endMillis - now).coerceIn(1, 60_000))
+        }
+    }.distinctUntilChanged().flatMapLatest(repository::observeDailySales)
+
     val state = combine(
         repository.favourites, lines, calculator, repository.shop, isSavingBill,
     ) { favourites, currentLines, currentCalculator, shop, saving ->
@@ -154,7 +175,7 @@ class QuickBillViewModel(application: Application) : AndroidViewModel(applicatio
                     repository.saveBill(checkoutLines)
                 } ?: return@launch
                 clearDraft()
-                eventChannel.send(BillEvent.Print(bill))
+                eventChannel.send(BillEvent.Print(PrintDocument.Receipt(bill)))
             } finally {
                 isSavingBill.value = false
             }
@@ -164,10 +185,39 @@ class QuickBillViewModel(application: Application) : AndroidViewModel(applicatio
     fun reprint(billNumber: Long) {
         if (reprintJob?.isActive == true || isSavingBill.value || thermalPrinting.busy) return
         reprintJob = viewModelScope.launch {
-            val bill = runAction(R.string.bill_open_failed) {
-                checkNotNull(repository.getBill(billNumber))
+            val bill = loadSavedBill(billNumber) ?: return@launch
+            eventChannel.send(BillEvent.Print(PrintDocument.Receipt(bill)))
+        }
+    }
+
+    suspend fun loadSavedBill(billNumber: Long): SavedBill? = runAction(R.string.bill_open_failed) {
+        checkNotNull(repository.getBill(billNumber))
+    }
+
+    fun shareSavedBill(billNumber: Long) {
+        viewModelScope.launch {
+            val bill = loadSavedBill(billNumber) ?: return@launch
+            eventChannel.send(BillEvent.Share(BillText.saved(bill)))
+        }
+    }
+
+    fun shareDraftBill() {
+        val draft = lines.value
+        if (draft.isEmpty() || isSavingBill.value) return
+        viewModelScope.launch {
+            val shop = runAction(R.string.bill_open_failed) { checkNotNull(repository.getShop()) }
+                ?: return@launch
+            eventChannel.send(BillEvent.Share(BillText.draft(shop, System.currentTimeMillis(), draft)))
+        }
+    }
+
+    fun printReport(report: DailySales) {
+        if (isSavingBill.value || thermalPrinting.busy) return
+        viewModelScope.launch {
+            val document = runAction(R.string.report_print_unavailable) {
+                PrintDocument.Report(report, repository.getShop())
             } ?: return@launch
-            eventChannel.send(BillEvent.Print(bill))
+            if (!thermalPrinting.busy && !isSavingBill.value) eventChannel.send(BillEvent.Print(document))
         }
     }
 

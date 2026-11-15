@@ -17,6 +17,12 @@ On Windows, you can also run `.\gradlew.bat :app:assembleDebug` from this folder
 
 Room stores favourites, shop settings, and numbered bills on the device. Completed bills move the most frequently sold favourites to the top.
 
+## Daily sales and sharing
+
+Open **Today** to see the Nepal-day sales total, bill count, average bill, top five favourites by sales revenue, and today's bills. Tap a bill to view, share, or reprint it. **Print report** uses the selected thermal printer or Android's print sheet.
+
+**Share** opens Android's share sheet with a plain-text bill. Sharing from **View bill** produces an unnumbered draft. Printing a report, sharing a bill, and reprinting from History leave sales and bill numbers unchanged.
+
 ## Set up a thermal printer
 
 1. Pair a 58 mm Classic Bluetooth ESC/POS printer in Android settings. Quick Bill uses the Serial Port Profile and a 384-dot print width.
