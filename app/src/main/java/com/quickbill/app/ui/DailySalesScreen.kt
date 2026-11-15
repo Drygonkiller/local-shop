@@ -34,8 +34,9 @@ import com.quickbill.app.R
 import com.quickbill.app.data.DailySales
 import com.quickbill.app.data.TopFavourite
 import com.quickbill.app.data.formatNepalBillTime
-import com.quickbill.app.data.formatNepalReportDate
+import com.quickbill.app.data.formatNepalDualDate
 import com.quickbill.app.data.formatNpr
+import com.quickbill.app.printing.BillText
 
 @Composable
 internal fun DailySalesScreen(
@@ -127,7 +128,7 @@ private fun DailySalesSummary(report: DailySales) {
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 Text(
-                    text = formatNepalReportDate(report.day),
+                    text = BillText.date(formatNepalDualDate(report.day.startMillis)),
                     style = MaterialTheme.typography.bodyMedium,
                 )
                 BilingualLabel(R.string.report_total_sales, R.string.report_total_sales_ne)

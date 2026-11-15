@@ -8,9 +8,9 @@ import android.os.CancellationSignal
 import android.text.Layout
 import android.text.StaticLayout
 import android.text.TextPaint
-import com.quickbill.app.data.formatNepalBillDateTime
 import com.quickbill.app.data.formatNepalBillTime
-import com.quickbill.app.data.formatNepalReportDate
+import com.quickbill.app.data.formatNepalDualDate
+import com.quickbill.app.data.formatNepalDualDateTime
 import com.quickbill.app.data.formatNpr
 import kotlin.math.ceil
 
@@ -64,7 +64,7 @@ internal class ReceiptLayout(
                 if (document.isTest) "Test receipt / परीक्षण बिल" else BillText.number(bill.billNumber),
                 if (document.isTest) amountStyle else detailStyle,
             ),
-            text(BillText.date(formatNepalBillDateTime(bill.createdAtMillis)), detailStyle),
+            text(BillText.date(formatNepalDualDateTime(bill.createdAtMillis)), detailStyle),
         )
     }
 
@@ -87,7 +87,9 @@ internal class ReceiptLayout(
         add(ReceiptRow(
             body = columns(BillText.Total, totalStyle, formatNpr(savedBill.bill.totalPaisa), totalStyle),
             divider = true,
+            keepWithNext = true,
         ))
+        add(ReceiptRow(title = text(BillText.inWords(savedBill.bill.totalPaisa), nameStyle)))
     }
 
     private fun reportHeader(document: PrintDocument.Report): List<StaticLayout> = buildList {
@@ -96,7 +98,7 @@ internal class ReceiptLayout(
             add(text(shop.name, totalStyle, alignment = Layout.Alignment.ALIGN_CENTER))
             add(text(BillText.pan(shop.pan), detailStyle))
         }
-        add(text(BillText.date(formatNepalReportDate(document.report.day)), detailStyle))
+        add(text(BillText.date(formatNepalDualDate(document.report.day.startMillis)), detailStyle))
     }
 
     private fun reportRows(
@@ -144,8 +146,13 @@ internal class ReceiptLayout(
 
         for ((index, row) in rows.withIndex()) {
             require(row.height <= bodyHeight) { "Printable height is too small" }
-            val pairHeight = row.height + (rows.getOrNull(index + 1)?.height ?: 0)
-            val needed = if (row.keepWithNext && pairHeight <= bodyHeight) pairHeight else row.height
+            var groupHeight = row.height
+            var groupEnd = index
+            while (groupEnd < rows.lastIndex && rows[groupEnd].keepWithNext) {
+                groupEnd++
+                groupHeight += rows[groupEnd].height
+            }
+            val needed = if (groupHeight <= bodyHeight) groupHeight else row.height
             if (needed > available) {
                 documentPages.add(page)
                 page = mutableListOf()

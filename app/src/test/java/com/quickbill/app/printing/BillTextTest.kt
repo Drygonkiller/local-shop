@@ -5,13 +5,15 @@ import com.quickbill.app.data.BillLine
 import com.quickbill.app.data.SaleLine
 import com.quickbill.app.data.SavedBill
 import com.quickbill.app.data.ShopDetails
+import java.time.Instant
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
 class BillTextTest {
     @Test
-    fun `sharing a saved bill uses receipt labels and Kathmandu time`() {
-        val bill = Bill(7, "Test shop", "123456789", 0L, 2_450L)
+    fun `sharing a saved bill uses both calendar dates and spells out the total`() {
+        val timestamp = Instant.parse("2026-11-15T14:28:00Z").toEpochMilli()
+        val bill = Bill(7, "Test shop", "123456789", timestamp, 2_450L)
         val line = BillLine(7, 0, 1, "चिया", 1_225L, 2)
 
         assertEquals(
@@ -19,24 +21,29 @@ class BillTextTest {
             Test shop
             PAN / प्यान 123456789
             Bill no. / बिल नं. 7
-            Date / मिति 1 Jan 1970, 05:30
+            Date / मिति 29 कात्तिक 2083 BS (15 Nov 2026), 20:13
 
             चिया
             2 × Rs. 12.25  Rs. 24.50
 
             Total / जम्मा  Rs. 24.50
+            In words / अक्षरमा: Twenty-four rupees and fifty paisa only
             """.trimIndent(),
             BillText.saved(SavedBill(bill, listOf(line))),
         )
     }
 
     @Test
-    fun `sharing the current bill uses an unnumbered draft`() {
+    fun `sharing a draft can fall back to the Gregorian date`() {
         val text = BillText.draft(
             ShopDetails("Test shop", "123456789"), 0L, listOf(SaleLine(1, "चिया", 2_000L, 1)),
         )
         assertEquals("Draft / मस्यौदा", text.lineSequence().first())
         assertEquals("Bill no. / बिल नं. —", text.lineSequence().elementAt(3))
-        assertEquals("Total / जम्मा  Rs. 20", text.lineSequence().last())
+        assertEquals("Date / मिति 1 Jan 1970, 05:30", text.lineSequence().elementAt(4))
+        assertEquals(
+            listOf("Total / जम्मा  Rs. 20", "In words / अक्षरमा: Twenty rupees only"),
+            text.lines().takeLast(2),
+        )
     }
 }

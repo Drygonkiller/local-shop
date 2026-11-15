@@ -23,6 +23,12 @@ Open **Today** to see the Nepal-day sales total, bill count, average bill, top f
 
 **Share** opens Android's share sheet with a plain-text bill. Sharing from **View bill** produces an unnumbered draft. Printing a report, sharing a bill, and reprinting from History leave sales and bill numbers unchanged.
 
+## Bill dates and amounts in words
+
+Receipts, saved bills, shared bills, and daily report dates show the Bikram Sambat date alongside the Gregorian date in Nepal time. Quick Bill includes month lengths for BS 2080–2090, from 14 April 2023 through 13 April 2034. It labels BS 2084–2090 as provisional and shows the Gregorian date outside the table. [Kathmandu Metropolitan City calendar](https://kathmandu.gov.np/en/calendar) · [Published month-length table](https://github.com/KDE/kdeplasma-addons/blob/1445c417500c2a206691d0710005f64dc8efdaee/plasmacalendarplugins/alternatecalendar/provider/nepalicalendar.cpp#L105)
+
+Printed, shared, and saved bills show the total in English words using lakh and crore. Quick Bill derives both displays from the stored timestamp and paisa total.
+
 ## Set up a thermal printer
 
 1. Pair a 58 mm Classic Bluetooth ESC/POS printer in Android settings. Quick Bill uses the Serial Port Profile and a 384-dot print width.

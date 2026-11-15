@@ -41,8 +41,9 @@ import com.quickbill.app.data.BillLine
 import com.quickbill.app.data.MAX_QUANTITY
 import com.quickbill.app.data.SaleLine
 import com.quickbill.app.data.SavedBill
-import com.quickbill.app.data.formatNepalBillDateTime
+import com.quickbill.app.data.formatNepalDualDateTime
 import com.quickbill.app.data.formatNpr
+import com.quickbill.app.printing.BillText
 
 @Composable
 internal fun BillingScreen(
@@ -195,7 +196,7 @@ internal fun HistoryScreen(
                 Column {
                     SavedBillSummary(
                         bill = bill,
-                        displayDate = formatNepalBillDateTime(bill.createdAtMillis),
+                        displayDate = formatNepalDualDateTime(bill.createdAtMillis),
                         onOpenBill = { onOpenBill(bill.billNumber) },
                     )
                     HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
@@ -313,7 +314,7 @@ internal fun SavedBillScreen(
                             style = MaterialTheme.typography.titleMedium,
                         )
                         Text(
-                            text = formatNepalBillDateTime(header.createdAtMillis),
+                            text = BillText.date(formatNepalDualDateTime(header.createdAtMillis)),
                             style = MaterialTheme.typography.bodyMedium,
                         )
                         HorizontalDivider(Modifier.padding(vertical = 4.dp), color = scheme.outlineVariant)
@@ -335,6 +336,10 @@ internal fun SavedBillScreen(
                                 textAlign = TextAlign.End,
                             )
                         }
+                        Text(
+                            text = BillText.inWords(header.totalPaisa),
+                            style = MaterialTheme.typography.bodyMedium,
+                        )
                     }
                 }
             }

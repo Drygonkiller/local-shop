@@ -30,6 +30,21 @@ fun formatNepalBillDateTime(millis: Long): String = formatNepalTime("d MMM yyyy,
 
 fun formatNepalBillTime(millis: Long): String = formatNepalTime("HH:mm", millis)
 
+fun formatNepalDualDate(millis: Long): String = formatNepalDualDate(millis, withTime = false)
+
+fun formatNepalDualDateTime(millis: Long): String = formatNepalDualDate(millis, withTime = true)
+
+private fun formatNepalDualDate(millis: Long, withTime: Boolean): String {
+    val civilDate = GregorianCalendar(nepalTimeZone, Locale.ENGLISH).apply { timeInMillis = millis }
+    val bs = bikramSambatDate(civilDate)
+    val ad = formatNepalTime("d MMM yyyy", millis)
+    return buildString {
+        if (bs == null) append(ad) else append("${bs.day} ${bs.monthName} ${bs.year} BS ($ad)")
+        if (withTime) append(", ${formatNepalBillTime(millis)}")
+        if (bs?.isProvisional == true) append(" · Provisional / अनुमानित")
+    }
+}
+
 private fun formatNepalTime(pattern: String, millis: Long): String =
     SimpleDateFormat(pattern, Locale.ENGLISH).apply { timeZone = nepalTimeZone }.format(Date(millis))
 
