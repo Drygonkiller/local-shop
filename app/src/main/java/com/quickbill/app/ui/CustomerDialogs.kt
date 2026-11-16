@@ -16,6 +16,7 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -39,6 +40,7 @@ import com.quickbill.app.data.CreditSummary
 import com.quickbill.app.data.Customer
 import com.quickbill.app.data.formatNpr
 import com.quickbill.app.data.parseNpr
+import java.math.BigDecimal
 import java.math.BigInteger
 
 @Composable
@@ -205,6 +207,7 @@ internal fun AddPaymentDialog(
     var validationError by rememberSaveable { mutableStateOf<Int?>(null) }
     var isSaving by remember { mutableStateOf(false) }
     val inputFocus = remember { FocusRequester() }
+    val canPayFull = duePaisa.signum() > 0 && duePaisa <= Long.MAX_VALUE.toBigInteger()
     val submit: () -> Unit = {
         if (!isSaving) {
             val amount = parseNpr(input, maxPaisa = Long.MAX_VALUE)
@@ -237,6 +240,18 @@ internal fun AddPaymentDialog(
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 Text(stringResource(R.string.khata_balance_value, formatNpr(duePaisa)))
+                OutlinedButton(
+                    onClick = {
+                        if (!isSaving) {
+                            input = BigDecimal(duePaisa, 2).stripTrailingZeros().toPlainString()
+                            validationError = null
+                        }
+                    },
+                    enabled = !isSaving && canPayFull,
+                    modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
+                ) {
+                    BilingualLabel(R.string.khata_pay_full, R.string.khata_pay_full_ne, centered = true)
+                }
                 OutlinedTextField(
                     value = input,
                     onValueChange = {

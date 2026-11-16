@@ -12,6 +12,10 @@ internal object LedgerText {
         appendLine(if (hasBalance) "Udharo reminder / उधारो भुक्तानीको सम्झना" else "Udharo statement / उधारो विवरण")
         appendLine("Customer / ग्राहक: ${ledger.customer.name}")
         append("Balance due / बाँकी रकम: ${formatNpr(ledger.duePaisa)}")
+        if (ledger.advancePaisa.signum() > 0) {
+            appendLine()
+            append("Advance / अग्रिम: ${formatNpr(ledger.advancePaisa)}")
+        }
 
         if (hasBalance) {
             appendLine()

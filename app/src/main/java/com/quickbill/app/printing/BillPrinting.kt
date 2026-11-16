@@ -11,6 +11,7 @@ import android.print.PageRange
 import android.print.PrintAttributes
 import android.print.PrintDocumentAdapter
 import android.print.PrintDocumentInfo
+import android.print.PrintJob
 import android.print.PrintManager
 import android.print.pdf.PrintedPdfDocument
 import android.util.Log
@@ -18,9 +19,9 @@ import com.quickbill.app.data.formatNepalReportDate
 import java.util.concurrent.Executors
 
 /** Opens the device's print dialog for a receipt or daily report. */
-fun printDocument(activity: Activity, document: PrintDocument): Boolean {
-    if (!activity.packageManager.hasSystemFeature(PackageManager.FEATURE_PRINTING)) return false
-    val manager = activity.getSystemService(PrintManager::class.java) ?: return false
+fun printDocument(activity: Activity, document: PrintDocument): PrintJob? {
+    if (!activity.packageManager.hasSystemFeature(PackageManager.FEATURE_PRINTING)) return null
+    val manager = activity.getSystemService(PrintManager::class.java) ?: return null
     val jobName = when (document) {
         is PrintDocument.Receipt -> if (document.isTest) "Quick Bill Test" else "Quick Bill ${document.bill.bill.billNumber}"
         is PrintDocument.Report -> "Quick Bill Daily Sales ${formatNepalReportDate(document.report.day)}"
@@ -33,15 +34,13 @@ fun printDocument(activity: Activity, document: PrintDocument): Boolean {
 
     return try {
         // PrintManager can return null when the system cannot launch its print dialog.
-        @Suppress("SENSELESS_COMPARISON")
-        val launched = manager.print(jobName, adapter, attributes) != null
-        launched
+        manager.print(jobName, adapter, attributes)
     } catch (error: IllegalStateException) {
         Log.w(PRINT_TAG, "Could not open Android printing", error)
-        false
+        null
     } catch (error: SecurityException) {
         Log.w(PRINT_TAG, "Android printing is unavailable", error)
-        false
+        null
     }
 }
 

@@ -30,12 +30,19 @@ class MainActivity : ComponentActivity() {
                 viewModel.events.collect { event ->
                     when (event) {
                         is BillEvent.Print -> {
-                            val handled = viewModel.thermalPrinting.printDocument(event.document)
-                            if (!handled && !printDocument(this@MainActivity, event.document)) {
-                                showMessage(
-                                    if (event.document is PrintDocument.Report) R.string.report_print_unavailable
-                                    else R.string.print_unavailable,
-                                )
+                            val billNumber = event.checkoutBillNumber
+                            val model = viewModel
+                            val onSent: (() -> Unit)? = billNumber?.let { { model.checkoutSent(it) } }
+                            if (!model.thermalPrinting.printDocument(event.document, onSent)) {
+                                val job = printDocument(this@MainActivity, event.document)
+                                if (job == null) {
+                                    showMessage(
+                                        if (event.document is PrintDocument.Report) R.string.report_print_unavailable
+                                        else R.string.print_unavailable,
+                                    )
+                                } else if (billNumber != null) {
+                                    model.trackSystemCheckout(billNumber, job)
+                                }
                             }
                         }
                         is BillEvent.Share -> shareText(event.text, event.title)
@@ -60,12 +67,18 @@ class MainActivity : ComponentActivity() {
                     onDeleteFavourite = viewModel::deleteFavourite,
                     onAddToBill = viewModel::addToBill,
                     onChangeQuantity = viewModel::changeQuantity,
+                    onClearBill = viewModel::clearCurrentBill,
                     onPrintBill = viewModel::printCurrentBill,
                     onCalculatorKey = viewModel::pressCalculatorKey,
                     onPrintCalculatorBill = viewModel::printCalculatorBill,
                     onSaveShop = viewModel::saveShop,
                     onReprint = viewModel::reprint,
                     loadSavedBill = viewModel::loadSavedBill,
+                    billNavigation = viewModel.billNavigation.collectAsStateWithLifecycle().value,
+                    onBillNavigationHandled = viewModel::consumeBillNavigation,
+                    isDeletingBills = viewModel.isDeletingBills.collectAsStateWithLifecycle().value,
+                    onDeleteBill = viewModel::deleteBill,
+                    onClearHistory = viewModel::clearHistory,
                     onShareSavedBill = viewModel::shareSavedBill,
                     onShareDraftBill = viewModel::shareDraftBill,
                     onPrintReport = viewModel::printReport,
@@ -82,6 +95,7 @@ class MainActivity : ComponentActivity() {
     override fun onResume() {
         super.onResume()
         viewModel.thermalPrinting.refreshPermission()
+        viewModel.checkSystemCheckout()
     }
 
     private fun showMessage(message: Int) {

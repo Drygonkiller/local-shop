@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="clear_draft_description">Clear bill / बिल खाली गर्नुहोस्</string>
+    <string name="delete_bill_detail">This bill will be removed from History and today\'s report. This cannot be undone.\nयो बिल इतिहास र आजको रिपोर्टबाट हट्नेछ। फिर्ता हुँदैन।</string>
+    <string name="clear_history_detail">This removes all saved bills from History and today\'s report.\nयसले इतिहास र आजको रिपोर्टबाट सबै सुरक्षित बिल हटाउँछ।</string>
+    <string name="continue_clear_history">Continue</string>
+    <string name="continue_clear_history_ne">अगाडि बढ्नुहोस्</string>
+    <string name="delete_all_bills_question">Delete ALL bills?</string>
+    <string name="delete_all_bills_question_ne">सबै बिल मेटाउने?</string>
+    <string name="delete_all_bills_detail">This cannot be undone.\nफिर्ता हुँदैन।</string>
+    <string name="bill_delete_failed">Could not delete the bill. Try again.\nबिल मेटाउन सकिएन। फेरि प्रयास गर्नुहोस्।</string>
+    <string name="history_clear_failed">Could not clear History. Try again.\nइतिहास मेटाउन सकिएन। फेरि प्रयास गर्नुहोस्।</string>
+</resources>

@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="favourite_search">Search / खोज्नुहोस्</string>
+    <string name="favourite_search_clear">Clear search / खोज मेटाउनुहोस्</string>
+    <string name="favourite_search_empty">No matching items</string>
+    <string name="favourite_search_empty_ne">मिल्दो सामान भेटिएन</string>
+</resources>

@@ -1,6 +1,8 @@
 package com.quickbill.app
 
 import android.app.Application
+import android.print.PrintJob
+import android.print.PrintJobInfo
 import android.util.Log
 import androidx.annotation.StringRes
 import androidx.lifecycle.AndroidViewModel
@@ -21,12 +23,14 @@ import com.quickbill.app.printing.LedgerText
 import com.quickbill.app.printing.PrintDocument
 import com.quickbill.app.printing.ThermalPrinting
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
@@ -35,6 +39,7 @@ import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 data class QuickBillUiState(
     val favourites: List<FavouriteItem> = emptyList(),
@@ -47,9 +52,14 @@ data class QuickBillUiState(
 )
 
 internal sealed interface BillEvent {
-    data class Print(val document: PrintDocument) : BillEvent
+    data class Print(val document: PrintDocument, val checkoutBillNumber: Long? = null) : BillEvent
     data class Share(val text: String, @param:StringRes val title: Int = R.string.share_bill_title) : BillEvent
     data class Message(@param:StringRes val message: Int) : BillEvent
+}
+
+internal sealed interface BillNavigation {
+    data class CheckoutSent(val billNumber: Long) : BillNavigation
+    data object HistoryUpdated : BillNavigation
 }
 
 class QuickBillViewModel(application: Application) : AndroidViewModel(application) {
@@ -58,10 +68,16 @@ class QuickBillViewModel(application: Application) : AndroidViewModel(applicatio
     private val lines = MutableStateFlow<List<SaleLine>>(emptyList())
     private val calculator = MutableStateFlow(CalculatorDraft())
     private val isSavingBill = MutableStateFlow(false)
+    private val deletingBills = MutableStateFlow(false)
+    private val navigation = MutableStateFlow<BillNavigation?>(null)
     private val eventChannel = Channel<BillEvent>(Channel.BUFFERED)
     private var reprintJob: Job? = null
+    private var systemCheckout: SystemCheckout? = null
+    private var systemCheckoutCheck: Job? = null
 
     internal val events = eventChannel.receiveAsFlow()
+    internal val isDeletingBills = deletingBills.asStateFlow()
+    internal val billNavigation = navigation.asStateFlow()
     val history = repository.history
     val customers = repository.customers
     val creditCustomers = repository.creditCustomers
@@ -162,6 +178,10 @@ class QuickBillViewModel(application: Application) : AndroidViewModel(applicatio
         }
     }
 
+    fun clearCurrentBill() {
+        if (!isSavingBill.value) lines.value = emptyList()
+    }
+
     fun pressCalculatorKey(key: CalculatorKey) {
         if (!isSavingBill.value) calculator.value = calculator.value.press(key)
     }
@@ -175,7 +195,7 @@ class QuickBillViewModel(application: Application) : AndroidViewModel(applicatio
     }
 
     private fun saveAndPrint(checkoutLines: List<SaleLine>, customerId: Long?, clearDraft: () -> Unit) {
-        if (checkoutLines.isEmpty() || isSavingBill.value || thermalPrinting.busy) return
+        if (checkoutLines.isEmpty() || isSavingBill.value || deletingBills.value || thermalPrinting.busy) return
         isSavingBill.value = true
         viewModelScope.launch {
             try {
@@ -183,7 +203,7 @@ class QuickBillViewModel(application: Application) : AndroidViewModel(applicatio
                     repository.saveBill(checkoutLines, customerId)
                 } ?: return@launch
                 clearDraft()
-                eventChannel.send(BillEvent.Print(PrintDocument.Receipt(bill)))
+                eventChannel.send(BillEvent.Print(PrintDocument.Receipt(bill), bill.bill.billNumber))
             } finally {
                 isSavingBill.value = false
             }
@@ -200,6 +220,61 @@ class QuickBillViewModel(application: Application) : AndroidViewModel(applicatio
 
     suspend fun loadSavedBill(billNumber: Long): SavedBill? = runAction(R.string.bill_open_failed) {
         checkNotNull(repository.getBill(billNumber))
+    }
+
+    fun deleteBill(billNumber: Long) = updateHistory(R.string.bill_delete_failed) {
+        repository.deleteBill(billNumber)
+    }
+
+    fun clearHistory() = updateHistory(R.string.history_clear_failed) {
+        repository.clearHistory()
+    }
+
+    private fun updateHistory(@StringRes failureMessage: Int, action: suspend () -> Unit) {
+        if (deletingBills.value || isSavingBill.value || thermalPrinting.busy) return
+        deletingBills.value = true
+        viewModelScope.launch {
+            try {
+                if (runAction(failureMessage, action) != null) navigation.value = BillNavigation.HistoryUpdated
+            } finally {
+                deletingBills.value = false
+            }
+        }
+    }
+
+    internal fun checkoutSent(billNumber: Long) {
+        navigation.value = BillNavigation.CheckoutSent(billNumber)
+    }
+
+    internal fun consumeBillNavigation(event: BillNavigation) {
+        navigation.compareAndSet(event, null)
+    }
+
+    internal fun trackSystemCheckout(billNumber: Long, job: PrintJob) {
+        systemCheckoutCheck?.cancel()
+        systemCheckout = SystemCheckout(billNumber, job)
+    }
+
+    internal fun checkSystemCheckout() {
+        val checkout = systemCheckout ?: return
+        if (systemCheckoutCheck?.isActive == true) return
+        systemCheckoutCheck = viewModelScope.launch {
+            // The print sheet can resume this app before the spooler publishes its new state.
+            repeat(12) {
+                val state = runAction(R.string.print_unavailable) {
+                    withContext(Dispatchers.IO) { checkout.job.info.state }
+                }
+                if (state != PrintJobInfo.STATE_CREATED) {
+                    systemCheckout = null
+                    when (state) {
+                        PrintJobInfo.STATE_QUEUED, PrintJobInfo.STATE_STARTED, PrintJobInfo.STATE_COMPLETED ->
+                            checkoutSent(checkout.billNumber)
+                    }
+                    return@launch
+                }
+                delay(150)
+            }
+        }
     }
 
     fun shareSavedBill(billNumber: Long) {
@@ -277,4 +352,6 @@ class QuickBillViewModel(application: Application) : AndroidViewModel(applicatio
         eventChannel.send(BillEvent.Message(message))
         null
     }
+
+    private data class SystemCheckout(val billNumber: Long, val job: PrintJob)
 }

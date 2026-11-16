@@ -23,6 +23,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.IconButton
@@ -53,6 +54,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.quickbill.app.BillNavigation
 import com.quickbill.app.QuickBillUiState
 import com.quickbill.app.R
 import com.quickbill.app.calculator.CalculatorKey
@@ -69,11 +71,15 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 
 private enum class Screen { Home, Bill, History, SavedBill, CustomerLedger }
-private enum class BillingMode(@param:StringRes val label: Int, @param:StringRes val nepali: Int) {
-    Favourites(R.string.favourites, R.string.favourites_ne),
-    Calculator(R.string.mode_calculator, R.string.mode_calculator_ne),
-    Today(R.string.report_today, R.string.report_today_ne),
-    Khata(R.string.khata, R.string.khata_ne),
+private enum class BillingMode(
+    @param:StringRes val label: Int,
+    @param:StringRes val nepali: Int,
+    val icon: BillIcon,
+) {
+    Favourites(R.string.favourites, R.string.favourites_ne, BillIcon.Bag),
+    Calculator(R.string.mode_calculator, R.string.mode_calculator_ne, BillIcon.Calculator),
+    Today(R.string.report_today, R.string.report_today_ne, BillIcon.Calendar),
+    Khata(R.string.khata, R.string.khata_ne, BillIcon.Ledger),
 }
 private enum class EntryDialog { AddItem, Shop, ShopForPrint, ShopForShare, CustomerPicker, NewCreditCustomer, NewCustomer }
 private enum class BillFooterAction(@param:StringRes val label: Int, @param:StringRes val nepali: Int) {
@@ -101,12 +107,18 @@ internal fun QuickBillApp(
     onDeleteFavourite: (Long, (Boolean) -> Unit) -> Unit,
     onAddToBill: (FavouriteItem) -> Unit,
     onChangeQuantity: (Long, Int) -> Unit,
+    onClearBill: () -> Unit,
     onPrintBill: (Long?) -> Unit,
     onCalculatorKey: (CalculatorKey) -> Unit,
     onPrintCalculatorBill: (Long?) -> Unit,
     onSaveShop: (String, String, (Boolean) -> Unit) -> Unit,
     onReprint: (Long) -> Unit,
     loadSavedBill: suspend (Long) -> SavedBill?,
+    billNavigation: BillNavigation?,
+    onBillNavigationHandled: (BillNavigation) -> Unit,
+    isDeletingBills: Boolean,
+    onDeleteBill: (Long) -> Unit,
+    onClearHistory: () -> Unit,
     onShareSavedBill: (Long) -> Unit,
     onShareDraftBill: () -> Unit,
     onPrintReport: (DailySales) -> Unit,
@@ -127,9 +139,14 @@ internal fun QuickBillApp(
     var showThermalSettings by rememberSaveable { mutableStateOf(false) }
     var favouriteMenuId by rememberSaveable { mutableStateOf<Long?>(null) }
     var photoTargetId by rememberSaveable { mutableStateOf<Long?>(null) }
+    var cashReceived by rememberSaveable { mutableStateOf("") }
+    var showClearBill by rememberSaveable { mutableStateOf(false) }
+    var historyQuery by rememberSaveable { mutableStateOf("") }
+    var historyConfirmation by rememberSaveable { mutableStateOf<HistoryConfirmation?>(null) }
     val context = LocalContext.current
     val printerState by thermalPrinting.state.collectAsStateWithLifecycle()
     val printerBusy = printerState.printing || printerState.askingPermission
+    val canDeleteBills = !isDeletingBills && !state.isSavingBill && !printerBusy
     val photoContract = remember { OpenLocalPhoto() }
     val photoPicker = rememberLauncherForActivityResult(photoContract) { uri ->
         val itemId = photoTargetId
@@ -155,6 +172,12 @@ internal fun QuickBillApp(
         }
     }
     val inCalculator = screen == Screen.Home && mode == BillingMode.Calculator
+    val inFavourites = screen == Screen.Home && mode == BillingMode.Favourites
+    val requestClearBill: (() -> Unit)? = if (state.lines.isNotEmpty() && !state.isSavingBill) {
+        { showClearBill = true }
+    } else {
+        null
+    }
     val onCheckoutScreen = screen == Screen.Bill ||
         (screen == Screen.Home && (mode == BillingMode.Favourites || inCalculator))
     val openCustomer: (Long) -> Unit = { id ->
@@ -165,6 +188,15 @@ internal fun QuickBillApp(
         returnTo = screen
         openedBillNumber = number
         screen = Screen.SavedBill
+    }
+    val newBill: () -> Unit = {
+        if (!state.isSavingBill) {
+            onClearBill()
+            cashReceived = ""
+            openedBillNumber = null
+            mode = BillingMode.Favourites
+            screen = Screen.Home
+        }
     }
     val goBack: () -> Unit = {
         when (screen) {
@@ -198,8 +230,30 @@ internal fun QuickBillApp(
         if (state.shop == null) entryDialog = EntryDialog.ShopForShare else onShareDraftBill()
     }
     BackHandler(enabled = screen != Screen.Home || mode != BillingMode.Favourites, onBack = goBack)
+    LaunchedEffect(billNavigation) {
+        when (billNavigation) {
+            is BillNavigation.CheckoutSent -> {
+                returnTo = Screen.Home
+                mode = BillingMode.Favourites
+                openedBillNumber = billNavigation.billNumber
+                screen = Screen.SavedBill
+            }
+            BillNavigation.HistoryUpdated -> {
+                openedBillNumber = null
+                historyQuery = ""
+                screen = Screen.History
+            }
+            null -> return@LaunchedEffect
+        }
+        historyConfirmation = null
+        onBillNavigationHandled(billNavigation)
+    }
     LaunchedEffect(state.lines.isEmpty()) {
-        if (screen == Screen.Bill && state.lines.isEmpty()) screen = Screen.Home
+        if (state.lines.isEmpty()) {
+            cashReceived = ""
+            showClearBill = false
+            if (screen == Screen.Bill) screen = Screen.Home
+        }
     }
 
     Surface(modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
@@ -210,6 +264,7 @@ internal fun QuickBillApp(
                 onBack = goBack,
                 onShop = { entryDialog = EntryDialog.Shop },
                 onHistory = { screen = Screen.History },
+                onClearBill = requestClearBill.takeIf { screen == Screen.Bill },
             )
             if (screen == Screen.Home) {
                 Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
@@ -266,6 +321,9 @@ internal fun QuickBillApp(
                     }
                     Screen.Bill -> BillingScreen(
                         lines = state.lines,
+                        totalPaisa = state.totalPaisa,
+                        cashReceived = cashReceived,
+                        onCashReceivedChange = { cashReceived = it },
                         canChangeQuantity = !state.isSavingBill,
                         onChangeQuantity = onChangeQuantity,
                         modifier = bodyModifier,
@@ -274,9 +332,13 @@ internal fun QuickBillApp(
                         val savedBills by history.collectAsStateWithLifecycle(initialValue = emptyList())
                         HistoryScreen(
                             history = savedBills,
+                            query = historyQuery,
+                            onQueryChange = { historyQuery = billNumberQuery(it) },
                             onReprint = onReprint,
                             onOpenBill = openBill,
                             onShare = onShareSavedBill,
+                            onClearHistory = { historyConfirmation = HistoryConfirmation.ClearHistory },
+                            canDeleteBills = canDeleteBills,
                             canReprint = !printerBusy && !state.isSavingBill,
                             modifier = bodyModifier,
                         )
@@ -293,6 +355,9 @@ internal fun QuickBillApp(
                                 bill = bill,
                                 onShare = onShareSavedBill,
                                 onReprint = onReprint,
+                                onNewBill = newBill,
+                                onDeleteBill = { historyConfirmation = HistoryConfirmation.DeleteBill },
+                                canDeleteBills = canDeleteBills,
                                 canReprint = !printerBusy && !state.isSavingBill,
                                 isBillMissing = hasLoaded && bill == null,
                                 modifier = bodyModifier,
@@ -330,7 +395,7 @@ internal fun QuickBillApp(
             if (onCheckoutScreen) {
                 BillFooter(
                     totalPaisa = if (inCalculator) state.calculator.totalPaisa else state.totalPaisa,
-                    canPrint = !state.isLoading && if (inCalculator) {
+                    canPrint = !state.isLoading && !isDeletingBills && if (inCalculator) {
                         state.calculator.canPrint
                     } else {
                         state.lines.isNotEmpty()
@@ -346,8 +411,57 @@ internal fun QuickBillApp(
                         screen = if (screen == Screen.Home) Screen.Bill else Screen.Home
                     },
                     onShare = if (screen == Screen.Bill) requestShare else null,
+                    onClearBill = requestClearBill.takeIf { inFavourites },
                     onPrint = requestPrint,
                     onCredit = { entryDialog = EntryDialog.CustomerPicker },
+                )
+            }
+        }
+    }
+
+    if ((screen == Screen.Bill || inFavourites) && showClearBill && state.lines.isNotEmpty()) {
+        AlertDialog(
+            onDismissRequest = { showClearBill = false },
+            title = {
+                BilingualLabel(
+                    R.string.clear_bill_question,
+                    R.string.clear_bill_question_ne,
+                    mainStyle = MaterialTheme.typography.titleLarge,
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        newBill()
+                        showClearBill = false
+                    },
+                    enabled = !state.isSavingBill,
+                    modifier = Modifier.heightIn(min = 48.dp),
+                ) {
+                    BilingualLabel(R.string.clear_bill, R.string.clear_bill_ne, centered = true)
+                }
+            },
+            dismissButton = { CancelButton(onClick = { showClearBill = false }) },
+        )
+    }
+
+    historyConfirmation?.let { confirmation ->
+        val billNumber = openedBillNumber
+        val confirmationScreen = if (confirmation == HistoryConfirmation.DeleteBill) Screen.SavedBill else Screen.History
+        if (screen == confirmationScreen) {
+            key(confirmation) {
+                HistoryConfirmationDialog(
+                    confirmation = confirmation,
+                    onDismiss = { historyConfirmation = null },
+                    enabled = canDeleteBills,
+                    onConfirm = {
+                        historyConfirmation = null
+                        when (confirmation) {
+                            HistoryConfirmation.DeleteBill -> billNumber?.let(onDeleteBill)
+                            HistoryConfirmation.ClearHistory -> historyConfirmation = HistoryConfirmation.DeleteAllBills
+                            HistoryConfirmation.DeleteAllBills -> onClearHistory()
+                        }
+                    },
                 )
             }
         }
@@ -452,15 +566,22 @@ private fun BillingTabs(
                 selected = selected == mode,
                 enabled = enabled,
                 onClick = { onSelect(mode) },
-                text = {
+            ) {
+                Column(
+                    modifier = Modifier.fillMaxWidth().heightIn(min = 76.dp)
+                        .padding(horizontal = 4.dp, vertical = 6.dp),
+                    verticalArrangement = Arrangement.spacedBy(3.dp, Alignment.CenterVertically),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                ) {
+                    BillIcon(mode.icon, size = 22.dp)
                     BilingualLabel(
                         mode.label,
                         mode.nepali,
-                        mainStyle = MaterialTheme.typography.labelMedium,
+                        mainStyle = MaterialTheme.typography.labelLarge,
                         centered = true,
                     )
-                },
-            )
+                }
+            }
         }
     }
 }
@@ -472,6 +593,7 @@ private fun Header(
     onBack: () -> Unit,
     onShop: () -> Unit,
     onHistory: () -> Unit,
+    onClearBill: (() -> Unit)?,
 ) {
     Surface(color = MaterialTheme.colorScheme.surface) {
         Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
@@ -509,6 +631,15 @@ private fun Header(
                     HeaderAction(R.string.history, R.string.history_ne, BillIcon.History, onHistory)
                     HeaderAction(R.string.shop, R.string.shop_ne, BillIcon.Shop, onShop, enabled = canEditShop)
                 }
+                if (onClearBill != null) {
+                    TextButton(
+                        onClick = onClearBill,
+                        modifier = Modifier.heightIn(min = 48.dp),
+                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp),
+                    ) {
+                        BilingualLabel(R.string.clear_bill, R.string.clear_bill_ne, centered = true)
+                    }
+                }
             }
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
         }
@@ -545,6 +676,7 @@ private fun BillFooter(
     secondaryAction: BillFooterAction?,
     onSecondaryClick: () -> Unit,
     onShare: (() -> Unit)?,
+    onClearBill: (() -> Unit)?,
     onPrint: () -> Unit,
     onCredit: () -> Unit,
 ) {
@@ -574,6 +706,13 @@ private fun BillFooter(
                         fontWeight = FontWeight.Bold,
                         textAlign = TextAlign.End,
                     )
+                    if (onClearBill != null) {
+                        val clearLabel = stringResource(R.string.clear_draft_description)
+                        IconButton(
+                            onClick = onClearBill,
+                            modifier = Modifier.semantics { contentDescription = clearLabel },
+                        ) { BillIcon(BillIcon.Close) }
+                    }
                 }
                 if (onShare != null) {
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {

@@ -31,6 +31,7 @@
     <string name="khata_balance_ne">तिर्न बाँकी</string>
     <string name="khata_due_short">Due / बाँकी</string>
     <string name="khata_balance_value">Due %1$s / बाँकी %1$s</string>
+    <string name="khata_advance_value">Advance / अग्रिम: %1$s</string>
     <string name="khata_transactions">Transactions</string>
     <string name="khata_transactions_ne">कारोबार</string>
     <string name="khata_no_transactions">No transactions yet</string>

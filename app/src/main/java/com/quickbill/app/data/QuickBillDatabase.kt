@@ -13,6 +13,9 @@ import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 import kotlinx.coroutines.flow.Flow
 
+internal const val DELETE_BILL_SQL = "DELETE FROM bills WHERE billNumber = :billNumber"
+internal const val CLEAR_HISTORY_SQL = "DELETE FROM bills"
+
 @Database(
     entities = [FavouriteItem::class, ShopDetails::class, Bill::class, BillLine::class, Customer::class, Payment::class],
     version = 2,
@@ -102,6 +105,13 @@ interface QuickBillDao {
 
     @Insert
     suspend fun insertBillLines(lines: List<BillLine>)
+
+    // The bill_lines foreign key cascades both deletes in the same transaction.
+    @Query(DELETE_BILL_SQL)
+    suspend fun deleteBill(billNumber: Long): Int
+
+    @Query(CLEAR_HISTORY_SQL)
+    suspend fun clearHistory()
 
     @Insert
     suspend fun insertCustomer(customer: Customer): Long

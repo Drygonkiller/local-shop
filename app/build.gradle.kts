@@ -14,13 +14,15 @@ android {
         applicationId = "com.quickbill.app"
         minSdk = 23
         targetSdk = 36
-        versionCode = 1
-        versionName = "0.1.0"
+        versionCode = 8
+        versionName = "0.8.0"
     }
 
     buildFeatures {
         compose = true
     }
+
+    sourceSets["test"].resources.srcDir("schemas")
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
@@ -51,4 +53,6 @@ dependencies {
     ksp("androidx.room:room-compiler:2.8.4")
 
     testImplementation("junit:junit:4.13.2")
+    testImplementation("org.xerial:sqlite-jdbc:3.41.2.2")
+    testImplementation("com.google.code.gson:gson:2.11.0")
 }

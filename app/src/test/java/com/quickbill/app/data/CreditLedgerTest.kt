@@ -15,7 +15,7 @@ class CreditLedgerTest {
         val rows = CustomerCreditRows(customer, emptyList(), emptyList())
 
         assertEquals(CreditSummary(customer, BigInteger.ZERO, null), summarizeCredit(rows))
-        assertEquals(CreditLedger(customer, BigInteger.ZERO, emptyList()), customerLedger(rows))
+        assertEquals(CreditLedger(customer, BigInteger.ZERO, BigInteger.ZERO, emptyList()), customerLedger(rows))
     }
 
     @Test
@@ -47,6 +47,48 @@ class CreditLedgerTest {
             listOf(CreditEntry.PaymentEntry(payment), CreditEntry.BillEntry(second), CreditEntry.BillEntry(first)),
             customerLedger(rows).entries,
         )
+    }
+
+    @Test
+    fun `deleting a credit bill leaves due from the remaining bills and payments`() {
+        val kept = bill(number = 4, amount = 12_105, createdAt = 100)
+        val deleted = bill(number = 5, amount = 4_150, createdAt = 200)
+        val received = payment(id = 1, amount = 7_235, createdAt = 300)
+        val before = CustomerCreditRows(customer, listOf(kept, deleted), listOf(received))
+        val after = before.copy(bills = before.bills - deleted)
+
+        assertEquals(9_020L.toBigInteger(), customerLedger(before).duePaisa)
+        val ledger = customerLedger(after)
+        assertEquals(4_870L.toBigInteger(), ledger.duePaisa)
+        assertEquals(BigInteger.ZERO, ledger.advancePaisa)
+        assertEquals(listOf(CreditEntry.PaymentEntry(received), CreditEntry.BillEntry(kept)), ledger.entries)
+    }
+
+    @Test
+    fun `payments above the remaining charges are an advance after bill deletion`() {
+        val kept = bill(number = 4, amount = 9_501, createdAt = 100)
+        val deleted = bill(number = 5, amount = 4_150, createdAt = 200)
+        val received = payment(id = 1, amount = 12_000, createdAt = 300)
+        val before = CustomerCreditRows(customer, listOf(kept, deleted), listOf(received))
+        val after = before.copy(bills = before.bills - deleted)
+
+        assertEquals(1_651L.toBigInteger(), customerLedger(before).duePaisa)
+        val ledger = customerLedger(after)
+        assertEquals(BigInteger.ZERO, ledger.duePaisa)
+        assertEquals(2_499L.toBigInteger(), ledger.advancePaisa)
+        assertEquals(BigInteger.ZERO, summarizeCredit(after).duePaisa)
+    }
+
+    @Test
+    fun `payment is rejected when deleting the last bill leaves no due`() {
+        val received = payment(id = 1, amount = 300, createdAt = 200)
+        val before = CustomerCreditRows(customer, listOf(bill(number = 5, amount = 800, createdAt = 100)), listOf(received))
+        validateCreditPayment(1, creditDue(before.bills, before.payments))
+
+        val after = before.copy(bills = emptyList())
+        val due = creditDue(after.bills, after.payments)
+        assertEquals(BigInteger.ZERO, due)
+        assertThrows(InvalidCreditPaymentException::class.java) { validateCreditPayment(1, due) }
     }
 
     @Test

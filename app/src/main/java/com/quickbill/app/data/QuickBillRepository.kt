@@ -115,6 +115,12 @@ class QuickBillRepository(private val database: QuickBillDatabase) {
         SavedBill(bill, dao.getBillLines(billNumber))
     }
 
+    suspend fun deleteBill(billNumber: Long) {
+        check(dao.deleteBill(billNumber) == 1) { "Bill is missing" }
+    }
+
+    suspend fun clearHistory() = dao.clearHistory()
+
     private fun validateFavouriteFields(name: String, unitPricePaisa: Long) {
         require(name.isNotBlank()) { "Item name is required" }
         require(unitPricePaisa in 0..MAX_PRICE_PAISA) { "Price is out of range" }

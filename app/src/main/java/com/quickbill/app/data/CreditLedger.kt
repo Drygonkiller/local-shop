@@ -6,7 +6,12 @@ import java.math.BigInteger
 
 data class CreditSummary(val customer: Customer, val duePaisa: BigInteger, val lastActivityAtMillis: Long?)
 
-data class CreditLedger(val customer: Customer, val duePaisa: BigInteger, val entries: List<CreditEntry>)
+data class CreditLedger(
+    val customer: Customer,
+    val duePaisa: BigInteger,
+    val advancePaisa: BigInteger,
+    val entries: List<CreditEntry>,
+)
 
 sealed interface CreditEntry {
     val createdAtMillis: Long
@@ -35,7 +40,10 @@ internal fun validateCreditPayment(amountPaisa: Long, duePaisa: BigInteger) {
     if (amountPaisa <= 0 || amountPaisa.toBigInteger() > duePaisa) throw InvalidCreditPaymentException()
 }
 
-internal fun creditDue(bills: List<Bill>, payments: List<Payment>): BigInteger {
+internal fun creditDue(bills: List<Bill>, payments: List<Payment>): BigInteger =
+    netCreditBalance(bills, payments).max(BigInteger.ZERO)
+
+private fun netCreditBalance(bills: List<Bill>, payments: List<Payment>): BigInteger {
     val charged = bills.fold(BigInteger.ZERO) { total, bill -> total + bill.totalPaisa.toBigInteger() }
     return payments.fold(charged) { balance, payment -> balance - payment.amountPaisa.toBigInteger() }
 }
@@ -58,7 +66,13 @@ internal fun customerLedger(rows: CustomerCreditRows): CreditLedger {
                 }
             },
     )
-    return CreditLedger(rows.customer, creditDue(rows.bills, rows.payments), newestFirst)
+    val balance = netCreditBalance(rows.bills, rows.payments)
+    return CreditLedger(
+        customer = rows.customer,
+        duePaisa = balance.max(BigInteger.ZERO),
+        advancePaisa = balance.negate().max(BigInteger.ZERO),
+        entries = newestFirst,
+    )
 }
 
 private val recentActivity = compareByDescending<CreditSummary> { it.lastActivityAtMillis }

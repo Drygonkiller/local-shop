@@ -10,6 +10,7 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -22,17 +23,25 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -40,12 +49,16 @@ import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.quickbill.app.R
@@ -67,23 +80,20 @@ internal fun FavouritesScreen(
     modifier: Modifier = Modifier,
 ) {
     val quantities = remember(lines) { lines.associate { it.favouriteId to it.quantity } }
+    var query by rememberSaveable { mutableStateOf("") }
+    val matchingFavourites = remember(favourites, query) { filterFavourites(favourites, query) }
+    val gridState = rememberLazyGridState()
+    val focusManager = LocalFocusManager.current
     Column(modifier) {
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
-            horizontalArrangement = Arrangement.End,
-        ) {
-            FilledTonalButton(
-                onClick = onAddItem,
-                enabled = !isLoading,
-                modifier = Modifier.heightIn(min = 52.dp),
-                shape = RoundedCornerShape(14.dp),
-                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 7.dp),
-            ) {
-                BillIcon(BillIcon.Add, size = 20.dp)
-                Spacer(Modifier.width(6.dp))
-                BilingualLabel(R.string.add_item, R.string.add_item_ne)
-            }
-        }
+        FavouriteToolbar(
+            query = query,
+            onQueryChange = {
+                query = it
+                gridState.requestScrollToItem(0)
+            },
+            onAddItem = onAddItem,
+            enabled = !isLoading,
+        )
         when {
             isLoading -> Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
                 CircularProgressIndicator()
@@ -94,24 +104,116 @@ internal fun FavouritesScreen(
                 BillIcon.Bag,
                 modifier = Modifier.weight(1f).fillMaxWidth(),
             )
+            matchingFavourites.isEmpty() -> EmptyScreen(
+                R.string.favourite_search_empty,
+                R.string.favourite_search_empty_ne,
+                BillIcon.Bag,
+                modifier = Modifier.weight(1f).fillMaxWidth(),
+            )
             else -> LazyVerticalGrid(
                 columns = GridCells.Adaptive(minSize = 136.dp),
+                state = gridState,
                 modifier = Modifier.weight(1f),
                 contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 16.dp),
                 horizontalArrangement = Arrangement.spacedBy(10.dp),
                 verticalArrangement = Arrangement.spacedBy(10.dp),
             ) {
-                items(favourites, key = { it.id }) { item ->
+                items(matchingFavourites, key = { it.id }) { item ->
                     FavouriteTile(
                         item = item,
                         quantity = quantities[item.id] ?: 0,
                         enabled = canAddToBill,
-                        onClick = { onTap(item) },
+                        onClick = {
+                            focusManager.clearFocus()
+                            onTap(item)
+                        },
                         onLongClick = { onManageFavourite(item) },
                     )
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun FavouriteToolbar(
+    query: String,
+    onQueryChange: (String) -> Unit,
+    onAddItem: () -> Unit,
+    enabled: Boolean,
+) {
+    BoxWithConstraints(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)) {
+        if (maxWidth / LocalDensity.current.fontScale >= 308.dp) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                FavouriteSearchField(query, onQueryChange, enabled, Modifier.weight(1f))
+                AddFavouriteButton(onAddItem, enabled)
+            }
+        } else {
+            Column(
+                horizontalAlignment = Alignment.End,
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                AddFavouriteButton(onAddItem, enabled)
+                FavouriteSearchField(query, onQueryChange, enabled, Modifier.fillMaxWidth())
+            }
+        }
+    }
+}
+
+@Composable
+private fun FavouriteSearchField(
+    value: String,
+    onValueChange: (String) -> Unit,
+    enabled: Boolean,
+    modifier: Modifier,
+) {
+    val focusManager = LocalFocusManager.current
+    OutlinedTextField(
+        value = value,
+        onValueChange = onValueChange,
+        modifier = modifier,
+        enabled = enabled,
+        singleLine = true,
+        label = {
+            Text(
+                stringResource(R.string.favourite_search),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        },
+        trailingIcon = if (value.isNotEmpty()) {
+            {
+                val clearLabel = stringResource(R.string.favourite_search_clear)
+                IconButton(
+                    onClick = { onValueChange("") },
+                    enabled = enabled,
+                    modifier = Modifier.semantics { contentDescription = clearLabel },
+                ) {
+                    BillIcon(BillIcon.Close, size = 20.dp)
+                }
+            }
+        } else null,
+        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+        keyboardActions = KeyboardActions(onSearch = { focusManager.clearFocus() }),
+        shape = RoundedCornerShape(14.dp),
+    )
+}
+
+@Composable
+private fun AddFavouriteButton(onClick: () -> Unit, enabled: Boolean) {
+    FilledTonalButton(
+        onClick = onClick,
+        enabled = enabled,
+        modifier = Modifier.heightIn(min = 52.dp),
+        shape = RoundedCornerShape(14.dp),
+        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 7.dp),
+    ) {
+        BillIcon(BillIcon.Add, size = 20.dp)
+        Spacer(Modifier.width(6.dp))
+        BilingualLabel(R.string.add_item, R.string.add_item_ne)
     }
 }
 

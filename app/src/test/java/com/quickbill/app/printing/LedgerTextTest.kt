@@ -4,7 +4,9 @@ import com.quickbill.app.data.Bill
 import com.quickbill.app.data.CreditEntry
 import com.quickbill.app.data.CreditLedger
 import com.quickbill.app.data.Customer
+import com.quickbill.app.data.CustomerCreditRows
 import com.quickbill.app.data.Payment
+import com.quickbill.app.data.customerLedger
 import java.math.BigInteger
 import java.time.Instant
 import org.junit.Assert.assertEquals
@@ -21,6 +23,7 @@ class LedgerTextTest {
         val ledger = CreditLedger(
             customer = customer,
             duePaisa = BigInteger.valueOf(17_500),
+            advancePaisa = BigInteger.ZERO,
             entries = listOf(CreditEntry.PaymentEntry(payment), CreditEntry.BillEntry(bill)),
         )
 
@@ -42,7 +45,7 @@ class LedgerTextTest {
 
     @Test
     fun `settled statement shows no request for payment`() {
-        val ledger = CreditLedger(customer, BigInteger.ZERO, emptyList())
+        val ledger = CreditLedger(customer, BigInteger.ZERO, BigInteger.ZERO, emptyList())
 
         assertEquals(
             """
@@ -50,6 +53,26 @@ class LedgerTextTest {
             Udharo statement / उधारो विवरण
             Customer / ग्राहक: माया श्रेष्ठ
             Balance due / बाँकी रकम: Rs. 0
+            """.trimIndent(),
+            LedgerText.reminder("Test shop", ledger),
+        )
+    }
+
+    @Test
+    fun `overpaid statement shows the advance and remaining payments after bills are cleared`() {
+        val payment = Payment(customerId = customer.id, amountPaisa = 12_501, createdAtMillis = timestamp)
+        val ledger = customerLedger(CustomerCreditRows(customer, emptyList(), listOf(payment)))
+
+        assertEquals(
+            """
+            Test shop
+            Udharo statement / उधारो विवरण
+            Customer / ग्राहक: माया श्रेष्ठ
+            Balance due / बाँकी रकम: Rs. 0
+            Advance / अग्रिम: Rs. 125.01
+
+            Recent entries / पछिल्ला कारोबार
+            Payment / भुक्तानी · 29 कात्तिक 2083 BS (15 Nov 2026), 20:13 · Rs. 125.01
             """.trimIndent(),
             LedgerText.reminder("Test shop", ledger),
         )

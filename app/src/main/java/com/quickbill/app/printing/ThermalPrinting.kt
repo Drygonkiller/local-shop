@@ -57,9 +57,9 @@ internal class ThermalPrinting(context: Context, private val scope: CoroutineSco
     }
 
     /** Returns false when the system print sheet should open. */
-    fun printDocument(document: PrintDocument): Boolean {
+    fun printDocument(document: PrintDocument, onSent: (() -> Unit)? = null): Boolean {
         val printer = state.value.selected ?: return false
-        printOrRequestPermission(PrintRequest(document, printer))
+        printOrRequestPermission(PrintRequest(document, printer, onSent))
         return true
     }
 
@@ -160,6 +160,8 @@ internal class ThermalPrinting(context: Context, private val scope: CoroutineSco
                     mutableState.update {
                         it.copy(notice = ThermalPrintNotice(R.string.thermal_test_sent, isError = false))
                     }
+                } else {
+                    request.onSent?.invoke()
                 }
             } finally {
                 activePrints--
@@ -203,7 +205,11 @@ internal class ThermalPrinting(context: Context, private val scope: CoroutineSco
     private fun hasConnectPermission(): Boolean = Build.VERSION.SDK_INT < Build.VERSION_CODES.S ||
         appContext.checkSelfPermission(Manifest.permission.BLUETOOTH_CONNECT) == PackageManager.PERMISSION_GRANTED
 
-    private data class PrintRequest(val document: PrintDocument, val printer: ThermalPrinter?) {
+    private data class PrintRequest(
+        val document: PrintDocument,
+        val printer: ThermalPrinter?,
+        val onSent: (() -> Unit)? = null,
+    ) {
         val isTest: Boolean get() = document is PrintDocument.Receipt && document.isTest
         val billSaved: Boolean get() = document is PrintDocument.Receipt && !document.isTest
     }

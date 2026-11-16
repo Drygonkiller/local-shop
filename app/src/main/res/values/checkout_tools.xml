@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="clear_bill">Clear bill</string>
+    <string name="clear_bill_ne">बिल खाली गर्नुहोस्</string>
+    <string name="clear_bill_question">Clear this bill?</string>
+    <string name="clear_bill_question_ne">यो बिल खाली गर्ने?</string>
+    <string name="cash_received">Cash received</string>
+    <string name="cash_received_ne">प्राप्त नगद</string>
+    <string name="cash_custom_amount">Amount (Rs.) / रकम (रु.)</string>
+    <string name="cash_change">Change / फिर्ता: %1$s</string>
+    <string name="history_search">Bill number / बिल नं.</string>
+    <string name="history_clear_search">Clear bill search / बिल खोजी खाली गर्नुहोस्</string>
+    <string name="history_no_match">No matching bills</string>
+    <string name="history_no_match_ne">मिल्ने बिल भेटिएनन्</string>
+</resources>

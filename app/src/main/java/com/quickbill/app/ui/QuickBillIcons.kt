@@ -17,7 +17,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 
 internal enum class BillIcon {
-    Add, Subtract, Back, Print, History, Shop, Receipt, Bag,
+    Add, Subtract, Back, Print, History, Shop, Receipt, Bag, Calculator, Calendar, Ledger, Search, Close,
 }
 
 @Composable
@@ -96,6 +96,36 @@ internal fun BillIcon(icon: BillIcon, size: Dp = 22.dp) {
                     drawArc(color, 180f, 180f, false, Offset(8f, 3f), Size(8f, 10f), style = stroke)
                     line(8f, 8f, 8f, 10f)
                     line(16f, 8f, 16f, 10f)
+                }
+                BillIcon.Calculator -> {
+                    rect(5f, 2.5f, 14f, 19f, 2f)
+                    line(8f, 7f, 16f, 7f)
+                    for (y in listOf(12f, 16.5f)) {
+                        line(8.5f, y, 9.5f, y)
+                        line(14.5f, y, 15.5f, y)
+                    }
+                }
+                BillIcon.Calendar -> {
+                    rect(3.5f, 5f, 17f, 15.5f, 2f)
+                    line(8f, 3f, 8f, 7f)
+                    line(16f, 3f, 16f, 7f)
+                    line(3.5f, 10f, 20.5f, 10f)
+                    drawCircle(color, 1.6f, Offset(12f, 15f))
+                }
+                BillIcon.Ledger -> {
+                    rect(4f, 3f, 16f, 18f, 2f)
+                    line(8f, 3f, 8f, 21f)
+                    line(11f, 8f, 16f, 8f)
+                    line(11f, 12f, 16f, 12f)
+                    line(11f, 16f, 14f, 16f)
+                }
+                BillIcon.Search -> {
+                    drawCircle(color, 5.5f, Offset(10.5f, 10.5f), style = stroke)
+                    line(14.5f, 14.5f, 20f, 20f)
+                }
+                BillIcon.Close -> {
+                    line(6f, 6f, 18f, 18f)
+                    line(18f, 6f, 6f, 18f)
                 }
             }
         }

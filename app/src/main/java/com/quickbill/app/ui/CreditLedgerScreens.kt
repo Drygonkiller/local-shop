@@ -245,6 +245,13 @@ private fun LedgerSummary(ledger: CreditLedger, onShare: () -> Unit, onEdit: () 
                 style = MaterialTheme.typography.headlineLarge,
                 fontWeight = FontWeight.Bold,
             )
+            if (ledger.advancePaisa.signum() > 0) {
+                Text(
+                    text = stringResource(R.string.khata_advance_value, formatNpr(ledger.advancePaisa)),
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold,
+                )
+            }
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 OutlinedButton(
                     onClick = onEdit,

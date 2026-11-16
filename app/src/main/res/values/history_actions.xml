@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="clear_history_all">Clear all</string>
+    <string name="clear_history_all_ne">सबै मेटाउनुहोस्</string>
+    <string name="delete_bill">Delete bill</string>
+    <string name="delete_bill_ne">बिल मेटाउनुहोस्</string>
+    <string name="new_bill">New bill</string>
+    <string name="new_bill_ne">नयाँ बिल</string>
+</resources>
