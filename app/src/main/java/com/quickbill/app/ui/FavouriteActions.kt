@@ -24,7 +24,7 @@ import androidx.compose.ui.unit.dp
 import com.quickbill.app.R
 import com.quickbill.app.data.FavouriteItem
 
-private enum class FavouriteAction { Menu, Edit, Delete }
+private enum class FavouriteAction { Menu, Photo, Edit, Delete }
 
 @Composable
 internal fun FavouriteActions(
@@ -32,13 +32,15 @@ internal fun FavouriteActions(
     onDismiss: () -> Unit,
     onEdit: (Long, String, Long, (Boolean) -> Unit) -> Unit,
     onDelete: (Long, (Boolean) -> Unit) -> Unit,
-    onPickPhoto: (Long) -> Unit,
+    onPickPhoto: (Long, FavouritePhotoSource) -> Unit,
     onRemovePhoto: (Long) -> Unit,
 ) {
     var action by rememberSaveable(item.id) { mutableStateOf(FavouriteAction.Menu) }
+    val hasPhoto = item.photoUri != null
+    val photoTitle = if (hasPhoto) R.string.change_photo else R.string.add_photo
+    val photoTitleNe = if (hasPhoto) R.string.change_photo_ne else R.string.add_photo_ne
     when (action) {
         FavouriteAction.Menu -> {
-            val hasPhoto = item.photoUri != null
             val actionSize = Modifier.fillMaxWidth().heightIn(min = 48.dp)
             AlertDialog(
                 onDismissRequest = onDismiss,
@@ -52,17 +54,10 @@ internal fun FavouriteActions(
                             BilingualLabel(R.string.edit_item, R.string.edit_item_ne, centered = true)
                         }
                         OutlinedButton(
-                            onClick = {
-                                onDismiss()
-                                onPickPhoto(item.id)
-                            },
+                            onClick = { action = FavouriteAction.Photo },
                             modifier = actionSize,
                         ) {
-                            BilingualLabel(
-                                if (hasPhoto) R.string.change_photo else R.string.add_photo,
-                                if (hasPhoto) R.string.change_photo_ne else R.string.add_photo_ne,
-                                centered = true,
-                            )
+                            BilingualLabel(photoTitle, photoTitleNe, centered = true)
                         }
                         if (hasPhoto) {
                             OutlinedButton(
@@ -85,6 +80,36 @@ internal fun FavouriteActions(
                     }
                 },
                 confirmButton = { CancelButton(onDismiss) },
+            )
+        }
+        FavouriteAction.Photo -> {
+            val backToMenu = { action = FavouriteAction.Menu }
+            val actionSize = Modifier.fillMaxWidth().heightIn(min = 56.dp)
+            AlertDialog(
+                onDismissRequest = backToMenu,
+                title = { BilingualLabel(photoTitle, photoTitleNe, mainStyle = MaterialTheme.typography.titleLarge) },
+                text = {
+                    Column(
+                        modifier = Modifier.verticalScroll(rememberScrollState()),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        Button(
+                            onClick = {
+                                onDismiss()
+                                onPickPhoto(item.id, FavouritePhotoSource.Camera)
+                            },
+                            modifier = actionSize,
+                        ) { BilingualLabel(R.string.take_photo, R.string.take_photo_ne, centered = true) }
+                        OutlinedButton(
+                            onClick = {
+                                onDismiss()
+                                onPickPhoto(item.id, FavouritePhotoSource.Gallery)
+                            },
+                            modifier = actionSize,
+                        ) { BilingualLabel(R.string.choose_gallery, R.string.choose_gallery_ne, centered = true) }
+                    }
+                },
+                confirmButton = { CancelButton(backToMenu) },
             )
         }
         FavouriteAction.Edit -> ItemEditorDialog(

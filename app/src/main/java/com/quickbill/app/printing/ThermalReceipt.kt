@@ -7,12 +7,13 @@ import java.io.OutputStream
 
 private const val PRINT_WIDTH_DOTS = 384
 private const val DOTS_PER_LAYOUT_UNIT = 2
+internal const val THERMAL_LAYOUT_WIDTH = PRINT_WIDTH_DOTS / DOTS_PER_LAYOUT_UNIT
 private const val STRIP_ROWS = 64
 
 internal fun writeThermalDocument(output: OutputStream, document: PrintDocument) {
     val layout = ReceiptLayout(
         document = document,
-        paperWidth = PRINT_WIDTH_DOTS / DOTS_PER_LAYOUT_UNIT,
+        paperWidth = THERMAL_LAYOUT_WIDTH,
         paperHeight = null,
         cancellationSignal = null,
     )

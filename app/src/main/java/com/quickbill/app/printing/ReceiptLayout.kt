@@ -41,6 +41,7 @@ internal class ReceiptLayout(
     private val header: List<StaticLayout>
     private val pages: List<List<ReceiptRow>>
     val pageCount: Int get() = pages.size
+    val minimumPageHeight: Long get() = headerHeight.toLong() + pages.single().maxOf { it.height } + PAGE_PADDING
 
     init {
         require(width >= 72) { "Printable width is too small" }
@@ -182,6 +183,8 @@ internal class ReceiptLayout(
             y += row.height
         }
     }
+
+    fun pageHeight(index: Int): Long = headerHeight.toLong() + pages[index].sumOf { it.height.toLong() } + PAGE_PADDING
 
     fun drawRoll(drawSection: (Int, (Canvas) -> Unit) -> Unit) {
         drawSection(headerHeight, ::drawHeader)

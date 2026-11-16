@@ -259,6 +259,7 @@ internal fun HistoryScreen(
     canReprint: Boolean,
     onOpenBill: (Long) -> Unit,
     onShare: (Long) -> Unit,
+    onSharePdf: (Long) -> Unit,
     onClearHistory: () -> Unit,
     canDeleteBills: Boolean = true,
     modifier: Modifier = Modifier,
@@ -324,6 +325,7 @@ internal fun HistoryScreen(
                         canReprint = canReprint,
                         onOpen = { onOpenBill(bill.billNumber) },
                         onShare = { onShare(bill.billNumber) },
+                        onSharePdf = { onSharePdf(bill.billNumber) },
                         onReprint = { onReprint(bill.billNumber) },
                     )
                 }
@@ -338,6 +340,7 @@ private fun HistoryBillCard(
     canReprint: Boolean,
     onOpen: () -> Unit,
     onShare: () -> Unit,
+    onSharePdf: () -> Unit,
     onReprint: () -> Unit,
 ) {
     Surface(
@@ -355,22 +358,31 @@ private fun HistoryBillCard(
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
             Row(
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 6.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End),
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                verticalAlignment = Alignment.CenterVertically,
             ) {
                 OutlinedButton(
                     onClick = onShare,
-                    modifier = Modifier.weight(1f, fill = false).heightIn(min = 48.dp),
+                    modifier = Modifier.weight(1f).heightIn(min = 48.dp),
                     shape = RoundedCornerShape(12.dp),
-                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 7.dp),
+                    contentPadding = PaddingValues(horizontal = 6.dp, vertical = 7.dp),
                 ) {
                     BilingualLabel(R.string.share, R.string.share_ne, centered = true)
                 }
                 OutlinedButton(
+                    onClick = onSharePdf,
+                    modifier = Modifier.weight(1f).heightIn(min = 48.dp),
+                    shape = RoundedCornerShape(12.dp),
+                    contentPadding = PaddingValues(horizontal = 6.dp, vertical = 7.dp),
+                ) {
+                    BilingualLabel(R.string.share_pdf, R.string.share_pdf_ne, centered = true)
+                }
+                OutlinedButton(
                     onClick = onReprint,
                     enabled = canReprint,
-                    modifier = Modifier.weight(1f, fill = false).heightIn(min = 48.dp),
+                    modifier = Modifier.weight(1f).heightIn(min = 48.dp),
                     shape = RoundedCornerShape(12.dp),
-                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 7.dp),
+                    contentPadding = PaddingValues(horizontal = 6.dp, vertical = 7.dp),
                 ) {
                     BilingualLabel(R.string.reprint, R.string.reprint_ne, centered = true)
                 }
@@ -426,6 +438,7 @@ internal fun SavedBillSummary(bill: Bill, displayDate: String, onOpenBill: () ->
 internal fun SavedBillScreen(
     bill: SavedBill?,
     onShare: (Long) -> Unit,
+    onSharePdf: (Long) -> Unit,
     onReprint: (Long) -> Unit,
     canReprint: Boolean,
     onDeleteBill: (Long) -> Unit,
@@ -521,8 +534,8 @@ internal fun SavedBillScreen(
                             mainStyle = MaterialTheme.typography.titleMedium,
                         )
                     }
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        val actionPadding = PaddingValues(horizontal = 8.dp, vertical = 7.dp)
+                    val actionPadding = PaddingValues(horizontal = 8.dp, vertical = 7.dp)
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                         OutlinedButton(
                             onClick = { onShare(header.billNumber) },
                             modifier = Modifier.weight(1f).heightIn(min = 54.dp),
@@ -531,6 +544,16 @@ internal fun SavedBillScreen(
                         ) {
                             BilingualLabel(R.string.share, R.string.share_ne, centered = true)
                         }
+                        OutlinedButton(
+                            onClick = { onSharePdf(header.billNumber) },
+                            modifier = Modifier.weight(1f).heightIn(min = 54.dp),
+                            shape = RoundedCornerShape(14.dp),
+                            contentPadding = actionPadding,
+                        ) {
+                            BilingualLabel(R.string.share_pdf, R.string.share_pdf_ne, centered = true)
+                        }
+                    }
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                         Button(
                             onClick = { onReprint(header.billNumber) },
                             enabled = canReprint,

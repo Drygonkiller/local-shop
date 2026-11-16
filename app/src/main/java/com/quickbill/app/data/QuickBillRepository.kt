@@ -63,12 +63,16 @@ class QuickBillRepository(private val database: QuickBillDatabase) {
         check(dao.updateFavourite(id, name.trim(), unitPricePaisa) == 1) { "Favourite item is missing" }
     }
 
-    suspend fun deleteFavourite(id: Long) {
+    suspend fun deleteFavourite(id: Long): String? = database.withTransaction {
+        val previousPhoto = dao.getFavouritePhoto(id)
         check(dao.deleteFavourite(id) == 1) { "Favourite item is missing" }
+        previousPhoto
     }
 
-    suspend fun setFavouritePhoto(id: Long, uri: String?) {
+    suspend fun setFavouritePhoto(id: Long, uri: String?): String? = database.withTransaction {
+        val previousPhoto = dao.getFavouritePhoto(id)
         check(dao.setFavouritePhoto(id, uri) == 1) { "Favourite item is missing" }
+        previousPhoto
     }
 
     suspend fun saveShop(name: String, pan: String) {

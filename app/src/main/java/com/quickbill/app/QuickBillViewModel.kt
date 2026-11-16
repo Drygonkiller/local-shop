@@ -1,6 +1,7 @@
 package com.quickbill.app
 
 import android.app.Application
+import android.net.Uri
 import android.print.PrintJob
 import android.print.PrintJobInfo
 import android.util.Log
@@ -12,6 +13,7 @@ import com.quickbill.app.calculator.CalculatorKey
 import com.quickbill.app.data.Customer
 import com.quickbill.app.data.DailySales
 import com.quickbill.app.data.FavouriteItem
+import com.quickbill.app.data.FavouritePhotoStorage
 import com.quickbill.app.data.MAX_QUANTITY
 import com.quickbill.app.data.SaleLine
 import com.quickbill.app.data.SavedBill
@@ -22,10 +24,12 @@ import com.quickbill.app.printing.BillText
 import com.quickbill.app.printing.LedgerText
 import com.quickbill.app.printing.PrintDocument
 import com.quickbill.app.printing.ThermalPrinting
+import com.quickbill.app.printing.createBillPdf
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -54,6 +58,7 @@ data class QuickBillUiState(
 internal sealed interface BillEvent {
     data class Print(val document: PrintDocument, val checkoutBillNumber: Long? = null) : BillEvent
     data class Share(val text: String, @param:StringRes val title: Int = R.string.share_bill_title) : BillEvent
+    data class SharePdf(val uri: Uri) : BillEvent
     data class Message(@param:StringRes val message: Int) : BillEvent
 }
 
@@ -64,6 +69,7 @@ internal sealed interface BillNavigation {
 
 class QuickBillViewModel(application: Application) : AndroidViewModel(application) {
     private val repository = (application as QuickBillApplication).repository
+    private val favouritePhotos = FavouritePhotoStorage(application)
     internal val thermalPrinting = ThermalPrinting(application, viewModelScope)
     private val lines = MutableStateFlow<List<SaleLine>>(emptyList())
     private val calculator = MutableStateFlow(CalculatorDraft())
@@ -72,6 +78,7 @@ class QuickBillViewModel(application: Application) : AndroidViewModel(applicatio
     private val navigation = MutableStateFlow<BillNavigation?>(null)
     private val eventChannel = Channel<BillEvent>(Channel.BUFFERED)
     private var reprintJob: Job? = null
+    private var sharePdfJob: Job? = null
     private var systemCheckout: SystemCheckout? = null
     private var systemCheckoutCheck: Job? = null
 
@@ -137,7 +144,9 @@ class QuickBillViewModel(application: Application) : AndroidViewModel(applicatio
     fun deleteFavourite(id: Long, onComplete: (Boolean) -> Unit) {
         viewModelScope.launch {
             val deleted = runAction(R.string.favourite_delete_failed) {
-                repository.deleteFavourite(id)
+                withContext(Dispatchers.IO + NonCancellable) {
+                    favouritePhotos.deleteOwnedPhoto(repository.deleteFavourite(id))
+                }
             } != null
             onComplete(deleted)
         }
@@ -152,7 +161,17 @@ class QuickBillViewModel(application: Application) : AndroidViewModel(applicatio
 
     fun setFavouritePhoto(id: Long, uri: String?) {
         viewModelScope.launch {
-            runAction(R.string.photo_save_failed) { repository.setFavouritePhoto(id, uri) }
+            runAction<Unit>(R.string.photo_save_failed) {
+                withContext(Dispatchers.IO + NonCancellable) {
+                    val previous = try {
+                        repository.setFavouritePhoto(id, uri)
+                    } catch (failure: Exception) {
+                        favouritePhotos.deleteOwnedPhoto(uri)
+                        throw failure
+                    }
+                    if (previous != uri) favouritePhotos.deleteOwnedPhoto(previous)
+                }
+            }
         }
     }
 
@@ -281,6 +300,17 @@ class QuickBillViewModel(application: Application) : AndroidViewModel(applicatio
         viewModelScope.launch {
             val bill = loadSavedBill(billNumber) ?: return@launch
             eventChannel.send(BillEvent.Share(BillText.saved(bill)))
+        }
+    }
+
+    fun shareSavedBillPdf(billNumber: Long) {
+        if (sharePdfJob?.isActive == true) return
+        sharePdfJob = viewModelScope.launch {
+            val uri = runAction(R.string.share_unavailable) {
+                val bill = checkNotNull(repository.getBill(billNumber))
+                createBillPdf(getApplication(), bill)
+            } ?: return@launch
+            eventChannel.send(BillEvent.SharePdf(uri))
         }
     }
 

@@ -1,7 +1,9 @@
 package com.quickbill.app
 
 import android.content.ActivityNotFoundException
+import android.content.ClipData
 import android.content.Intent
+import android.net.Uri
 import android.os.Bundle
 import android.widget.Toast
 import androidx.activity.ComponentActivity
@@ -46,6 +48,7 @@ class MainActivity : ComponentActivity() {
                             }
                         }
                         is BillEvent.Share -> shareText(event.text, event.title)
+                        is BillEvent.SharePdf -> sharePdf(event.uri)
                         is BillEvent.Message -> showMessage(event.message)
                     }
                 }
@@ -80,6 +83,7 @@ class MainActivity : ComponentActivity() {
                     onDeleteBill = viewModel::deleteBill,
                     onClearHistory = viewModel::clearHistory,
                     onShareSavedBill = viewModel::shareSavedBill,
+                    onShareSavedBillPdf = viewModel::shareSavedBillPdf,
                     onShareDraftBill = viewModel::shareDraftBill,
                     onPrintReport = viewModel::printReport,
                     onSetPhoto = viewModel::setFavouritePhoto,
@@ -109,6 +113,24 @@ class MainActivity : ComponentActivity() {
         try {
             startActivity(Intent.createChooser(send, getString(title)))
         } catch (_: ActivityNotFoundException) {
+            showMessage(R.string.share_unavailable)
+        }
+    }
+
+    private fun sharePdf(uri: Uri) {
+        val title = getString(R.string.share_pdf_title)
+        val send = Intent(Intent.ACTION_SEND)
+            .setType("application/pdf")
+            .putExtra(Intent.EXTRA_STREAM, uri)
+            .apply {
+                clipData = ClipData.newRawUri(title, uri)
+                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            }
+        try {
+            startActivity(Intent.createChooser(send, title))
+        } catch (_: ActivityNotFoundException) {
+            showMessage(R.string.share_unavailable)
+        } catch (_: SecurityException) {
             showMessage(R.string.share_unavailable)
         }
     }

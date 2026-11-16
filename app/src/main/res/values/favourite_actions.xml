@@ -7,6 +7,11 @@
     <string name="delete_item_ne">सामान हटाउनुहोस्</string>
     <string name="add_photo">Add photo</string>
     <string name="add_photo_ne">फोटो थप्नुहोस्</string>
+    <string name="take_photo">Take photo</string>
+    <string name="take_photo_ne">फोटो खिच्नुहोस्</string>
+    <string name="choose_gallery">Choose from gallery</string>
+    <string name="choose_gallery_ne">ग्यालरीबाट छान्नुहोस्</string>
+    <string name="photo_capture_failed">Could not take photo / फोटो खिच्न सकिएन</string>
     <string name="confirm_delete_favourite">Remove %1$s from Favourites? Saved bills are available in History.</string>
     <string name="confirm_delete_favourite_ne">मनपर्ने सामानबाट %1$s हटाउने हो? सुरक्षित बिलहरू बिल सूचीमा हेर्न सक्नुहुन्छ।</string>
 </resources>

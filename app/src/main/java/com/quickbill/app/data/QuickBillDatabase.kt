@@ -72,6 +72,9 @@ interface QuickBillDao {
     @Query("DELETE FROM favourites WHERE id = :id")
     suspend fun deleteFavourite(id: Long): Int
 
+    @Query("SELECT photoUri FROM favourites WHERE id = :id")
+    suspend fun getFavouritePhoto(id: Long): String?
+
     @Query("UPDATE favourites SET photoUri = :uri WHERE id = :id")
     suspend fun setFavouritePhoto(id: Long, uri: String?): Int
 

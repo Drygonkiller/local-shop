@@ -1,12 +1,6 @@
 package com.quickbill.app.ui
 
-import android.content.ActivityNotFoundException
-import android.content.Context
-import android.content.Intent
-import android.widget.Toast
 import androidx.activity.compose.BackHandler
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.StringRes
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -44,7 +38,6 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
@@ -87,12 +80,6 @@ private enum class BillFooterAction(@param:StringRes val label: Int, @param:Stri
     AddItems(R.string.add_items, R.string.add_items_ne),
 }
 
-private class OpenLocalPhoto : ActivityResultContracts.OpenDocument() {
-    override fun createIntent(context: Context, input: Array<String>): Intent {
-        return super.createIntent(context, input).putExtra(Intent.EXTRA_LOCAL_ONLY, true)
-    }
-}
-
 @Composable
 internal fun QuickBillApp(
     state: QuickBillUiState,
@@ -120,6 +107,7 @@ internal fun QuickBillApp(
     onDeleteBill: (Long) -> Unit,
     onClearHistory: () -> Unit,
     onShareSavedBill: (Long) -> Unit,
+    onShareSavedBillPdf: (Long) -> Unit,
     onShareDraftBill: () -> Unit,
     onPrintReport: (DailySales) -> Unit,
     onSetPhoto: (Long, String?) -> Unit,
@@ -138,39 +126,14 @@ internal fun QuickBillApp(
     var entryDialog by rememberSaveable { mutableStateOf<EntryDialog?>(null) }
     var showThermalSettings by rememberSaveable { mutableStateOf(false) }
     var favouriteMenuId by rememberSaveable { mutableStateOf<Long?>(null) }
-    var photoTargetId by rememberSaveable { mutableStateOf<Long?>(null) }
     var cashReceived by rememberSaveable { mutableStateOf("") }
     var showClearBill by rememberSaveable { mutableStateOf(false) }
     var historyQuery by rememberSaveable { mutableStateOf("") }
     var historyConfirmation by rememberSaveable { mutableStateOf<HistoryConfirmation?>(null) }
-    val context = LocalContext.current
     val printerState by thermalPrinting.state.collectAsStateWithLifecycle()
     val printerBusy = printerState.printing || printerState.askingPermission
     val canDeleteBills = !isDeletingBills && !state.isSavingBill && !printerBusy
-    val photoContract = remember { OpenLocalPhoto() }
-    val photoPicker = rememberLauncherForActivityResult(photoContract) { uri ->
-        val itemId = photoTargetId
-        photoTargetId = null
-        if (uri != null && itemId != null) {
-            val permission = runCatching {
-                context.contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
-            }
-            if (permission.isSuccess) {
-                onSetPhoto(itemId, uri.toString())
-            } else {
-                Toast.makeText(context, R.string.photo_access_error, Toast.LENGTH_SHORT).show()
-            }
-        }
-    }
-    val pickPhoto: (Long) -> Unit = { id ->
-        photoTargetId = id
-        try {
-            photoPicker.launch(arrayOf("image/*"))
-        } catch (_: ActivityNotFoundException) {
-            photoTargetId = null
-            Toast.makeText(context, R.string.photo_access_error, Toast.LENGTH_SHORT).show()
-        }
-    }
+    val pickPhoto = rememberFavouritePhotoLauncher(onSetPhoto)
     val inCalculator = screen == Screen.Home && mode == BillingMode.Calculator
     val inFavourites = screen == Screen.Home && mode == BillingMode.Favourites
     val requestClearBill: (() -> Unit)? = if (state.lines.isNotEmpty() && !state.isSavingBill) {
@@ -337,6 +300,7 @@ internal fun QuickBillApp(
                             onReprint = onReprint,
                             onOpenBill = openBill,
                             onShare = onShareSavedBill,
+                            onSharePdf = onShareSavedBillPdf,
                             onClearHistory = { historyConfirmation = HistoryConfirmation.ClearHistory },
                             canDeleteBills = canDeleteBills,
                             canReprint = !printerBusy && !state.isSavingBill,
@@ -354,6 +318,7 @@ internal fun QuickBillApp(
                             SavedBillScreen(
                                 bill = bill,
                                 onShare = onShareSavedBill,
+                                onSharePdf = onShareSavedBillPdf,
                                 onReprint = onReprint,
                                 onNewBill = newBill,
                                 onDeleteBill = { historyConfirmation = HistoryConfirmation.DeleteBill },
