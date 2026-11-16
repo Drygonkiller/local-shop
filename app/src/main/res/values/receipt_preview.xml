@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="receipt_preview">Bill preview</string>
+    <string name="receipt_preview_ne">बिलको पूर्वावलोकन</string>
+    <string name="receipt_preview_unavailable">Preview unavailable</string>
+    <string name="receipt_preview_unavailable_ne">पूर्वावलोकन उपलब्ध छैन</string>
+</resources>

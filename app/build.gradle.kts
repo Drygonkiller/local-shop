@@ -14,8 +14,8 @@ android {
         applicationId = "com.quickbill.app"
         minSdk = 23
         targetSdk = 36
-        versionCode = 9
-        versionName = "0.9.0"
+        versionCode = 12
+        versionName = "0.9.3"
     }
 
     buildFeatures {

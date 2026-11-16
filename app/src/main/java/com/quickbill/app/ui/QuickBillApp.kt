@@ -63,7 +63,7 @@ import com.quickbill.app.printing.ThermalPrinting
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 
-private enum class Screen { Home, Bill, History, SavedBill, CustomerLedger }
+private enum class Screen { Home, Bill, History, SavedBill, ReceiptPreview, CustomerLedger }
 private enum class BillingMode(
     @param:StringRes val label: Int,
     @param:StringRes val nepali: Int,
@@ -74,7 +74,9 @@ private enum class BillingMode(
     Today(R.string.report_today, R.string.report_today_ne, BillIcon.Calendar),
     Khata(R.string.khata, R.string.khata_ne, BillIcon.Ledger),
 }
-private enum class EntryDialog { AddItem, Shop, ShopForPrint, ShopForShare, CustomerPicker, NewCreditCustomer, NewCustomer }
+private enum class EntryDialog {
+    AddItem, Shop, ShopForPrint, ShopForShare, ShopForSharePdf, CustomerPicker, NewCreditCustomer, NewCustomer,
+}
 private enum class BillFooterAction(@param:StringRes val label: Int, @param:StringRes val nepali: Int) {
     ViewBill(R.string.view_bill, R.string.view_bill_ne),
     AddItems(R.string.add_items, R.string.add_items_ne),
@@ -100,6 +102,7 @@ internal fun QuickBillApp(
     onPrintCalculatorBill: (Long?) -> Unit,
     onSaveShop: (String, String, (Boolean) -> Unit) -> Unit,
     onReprint: (Long) -> Unit,
+    onPrintReceiptPreview: (SavedBill, Boolean) -> Unit,
     loadSavedBill: suspend (Long) -> SavedBill?,
     billNavigation: BillNavigation?,
     onBillNavigationHandled: (BillNavigation) -> Unit,
@@ -109,6 +112,7 @@ internal fun QuickBillApp(
     onShareSavedBill: (Long) -> Unit,
     onShareSavedBillPdf: (Long) -> Unit,
     onShareDraftBill: () -> Unit,
+    onSaveAndShareBillPdf: () -> Unit,
     onPrintReport: (DailySales) -> Unit,
     onSetPhoto: (Long, String?) -> Unit,
     onAddCustomer: (String, String?, (Customer?) -> Unit) -> Unit,
@@ -120,6 +124,7 @@ internal fun QuickBillApp(
     var screen by rememberSaveable { mutableStateOf(Screen.Home) }
     var mode by rememberSaveable { mutableStateOf(BillingMode.Favourites) }
     var openedBillNumber by rememberSaveable { mutableStateOf<Long?>(null) }
+    var previewFromCheckout by rememberSaveable { mutableStateOf(false) }
     var openedCustomerId by rememberSaveable { mutableStateOf<Long?>(null) }
     var pendingCreditCustomerId by rememberSaveable { mutableStateOf<Long?>(null) }
     var returnTo by rememberSaveable { mutableStateOf(Screen.Home) }
@@ -167,6 +172,7 @@ internal fun QuickBillApp(
                 screen = returnTo
                 openedBillNumber = null
             }
+            Screen.ReceiptPreview -> screen = Screen.SavedBill
             Screen.Home -> mode = BillingMode.Favourites
             Screen.Bill, Screen.History -> screen = Screen.Home
             Screen.CustomerLedger -> {
@@ -192,14 +198,29 @@ internal fun QuickBillApp(
     val requestShare: () -> Unit = {
         if (state.shop == null) entryDialog = EntryDialog.ShopForShare else onShareDraftBill()
     }
+    val requestSharePdf: () -> Unit = {
+        pendingCreditCustomerId = null
+        if (state.shop == null) entryDialog = EntryDialog.ShopForSharePdf else onSaveAndShareBillPdf()
+    }
     BackHandler(enabled = screen != Screen.Home || mode != BillingMode.Favourites, onBack = goBack)
     LaunchedEffect(billNavigation) {
         when (billNavigation) {
-            is BillNavigation.CheckoutSent -> {
+            is BillNavigation.CheckoutSaved -> {
                 returnTo = Screen.Home
                 mode = BillingMode.Favourites
                 openedBillNumber = billNavigation.billNumber
                 screen = Screen.SavedBill
+            }
+            is BillNavigation.ReceiptPreview -> {
+                if (billNavigation.fromCheckout) {
+                    returnTo = Screen.Home
+                    mode = BillingMode.Favourites
+                } else if (screen != Screen.SavedBill && screen != Screen.ReceiptPreview) {
+                    returnTo = screen
+                }
+                openedBillNumber = billNavigation.billNumber
+                previewFromCheckout = billNavigation.fromCheckout
+                screen = Screen.ReceiptPreview
             }
             BillNavigation.HistoryUpdated -> {
                 openedBillNumber = null
@@ -211,11 +232,11 @@ internal fun QuickBillApp(
         historyConfirmation = null
         onBillNavigationHandled(billNavigation)
     }
-    LaunchedEffect(state.lines.isEmpty()) {
+    LaunchedEffect(state.lines.isEmpty(), state.isSavingBill) {
         if (state.lines.isEmpty()) {
             cashReceived = ""
             showClearBill = false
-            if (screen == Screen.Bill) screen = Screen.Home
+            if (screen == Screen.Bill && !state.isSavingBill) screen = Screen.Home
         }
     }
 
@@ -307,7 +328,7 @@ internal fun QuickBillApp(
                             modifier = bodyModifier,
                         )
                     }
-                    Screen.SavedBill -> openedBillNumber?.let { number ->
+                    Screen.SavedBill, Screen.ReceiptPreview -> openedBillNumber?.let { number ->
                         key(number) {
                             var bill by remember { mutableStateOf<SavedBill?>(null) }
                             var hasLoaded by remember { mutableStateOf(false) }
@@ -315,18 +336,31 @@ internal fun QuickBillApp(
                                 bill = loadSavedBill(number)
                                 hasLoaded = true
                             }
-                            SavedBillScreen(
-                                bill = bill,
-                                onShare = onShareSavedBill,
-                                onSharePdf = onShareSavedBillPdf,
-                                onReprint = onReprint,
-                                onNewBill = newBill,
-                                onDeleteBill = { historyConfirmation = HistoryConfirmation.DeleteBill },
-                                canDeleteBills = canDeleteBills,
-                                canReprint = !printerBusy && !state.isSavingBill,
-                                isBillMissing = hasLoaded && bill == null,
-                                modifier = bodyModifier,
-                            )
+                            if (screen == Screen.ReceiptPreview) {
+                                ReceiptPreviewScreen(
+                                    bill = bill,
+                                    isBillMissing = hasLoaded && bill == null,
+                                    onSharePdf = {
+                                        screen = Screen.SavedBill
+                                        onShareSavedBillPdf(number)
+                                    },
+                                    onPrint = { bill?.let { onPrintReceiptPreview(it, previewFromCheckout) } },
+                                    modifier = bodyModifier,
+                                )
+                            } else {
+                                SavedBillScreen(
+                                    bill = bill,
+                                    onShare = onShareSavedBill,
+                                    onSharePdf = onShareSavedBillPdf,
+                                    onReprint = onReprint,
+                                    onNewBill = newBill,
+                                    onDeleteBill = { historyConfirmation = HistoryConfirmation.DeleteBill },
+                                    canDeleteBills = canDeleteBills,
+                                    canReprint = !printerBusy && !state.isSavingBill,
+                                    isBillMissing = hasLoaded && bill == null,
+                                    modifier = bodyModifier,
+                                )
+                            }
                         }
                     }
                     Screen.CustomerLedger -> openedCustomerId?.let { id ->
@@ -376,6 +410,7 @@ internal fun QuickBillApp(
                         screen = if (screen == Screen.Home) Screen.Bill else Screen.Home
                     },
                     onShare = if (screen == Screen.Bill) requestShare else null,
+                    onSharePdf = if (screen == Screen.Bill) requestSharePdf else null,
                     onClearBill = requestClearBill.takeIf { inFavourites },
                     onPrint = requestPrint,
                     onCredit = { entryDialog = EntryDialog.CustomerPicker },
@@ -464,10 +499,10 @@ internal fun QuickBillApp(
                 onDismiss = { entryDialog = if (forCredit) EntryDialog.CustomerPicker else null },
             )
         }
-        EntryDialog.Shop, EntryDialog.ShopForPrint, EntryDialog.ShopForShare -> ShopDialog(
+        EntryDialog.Shop, EntryDialog.ShopForPrint, EntryDialog.ShopForShare, EntryDialog.ShopForSharePdf -> ShopDialog(
             shop = state.shop,
             forPrint = entryDialog == EntryDialog.ShopForPrint,
-            forShare = entryDialog == EntryDialog.ShopForShare,
+            forShare = entryDialog == EntryDialog.ShopForShare || entryDialog == EntryDialog.ShopForSharePdf,
             onDismiss = {
                 entryDialog = null
                 pendingCreditCustomerId = null
@@ -486,6 +521,7 @@ internal fun QuickBillApp(
                 when (completed) {
                     EntryDialog.ShopForPrint -> checkout(customerId)
                     EntryDialog.ShopForShare -> onShareDraftBill()
+                    EntryDialog.ShopForSharePdf -> onSaveAndShareBillPdf()
                     else -> Unit
                 }
             },
@@ -581,6 +617,7 @@ private fun Header(
                     Screen.Bill -> R.string.current_bill to R.string.current_bill_ne
                     Screen.History -> R.string.history to R.string.history_ne
                     Screen.SavedBill -> R.string.saved_bill_title to R.string.saved_bill_title_ne
+                    Screen.ReceiptPreview -> R.string.receipt_preview to R.string.receipt_preview_ne
                     Screen.CustomerLedger -> R.string.customer_ledger to R.string.customer_ledger_ne
                 }
                 BilingualLabel(
@@ -641,6 +678,7 @@ private fun BillFooter(
     secondaryAction: BillFooterAction?,
     onSecondaryClick: () -> Unit,
     onShare: (() -> Unit)?,
+    onSharePdf: (() -> Unit)?,
     onClearBill: (() -> Unit)?,
     onPrint: () -> Unit,
     onCredit: () -> Unit,
@@ -679,8 +717,9 @@ private fun BillFooter(
                         ) { BillIcon(BillIcon.Close) }
                     }
                 }
+                val canCheckout = canPrint && !isSaving && !isPrinting
                 if (onShare != null) {
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                         BillingOutlineButton(
                             R.string.add_items,
                             R.string.add_items_ne,
@@ -695,9 +734,17 @@ private fun BillFooter(
                             canPrint && !isSaving,
                             Modifier.weight(1f),
                         )
+                        if (onSharePdf != null) {
+                            BillingOutlineButton(
+                                R.string.share_pdf,
+                                R.string.share_pdf_ne,
+                                onSharePdf,
+                                canCheckout,
+                                Modifier.weight(1f),
+                            )
+                        }
                     }
                 }
-                val canCheckout = canPrint && !isSaving && !isPrinting
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     if (secondaryAction != null && onShare == null) {
                         BillingOutlineButton(
