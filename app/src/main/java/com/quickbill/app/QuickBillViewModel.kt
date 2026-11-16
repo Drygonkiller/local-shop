@@ -7,6 +7,7 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.quickbill.app.calculator.CalculatorDraft
 import com.quickbill.app.calculator.CalculatorKey
+import com.quickbill.app.data.Customer
 import com.quickbill.app.data.DailySales
 import com.quickbill.app.data.FavouriteItem
 import com.quickbill.app.data.MAX_QUANTITY
@@ -16,6 +17,7 @@ import com.quickbill.app.data.ShopDetails
 import com.quickbill.app.data.currentNepalDay
 import com.quickbill.app.data.totalPaisa
 import com.quickbill.app.printing.BillText
+import com.quickbill.app.printing.LedgerText
 import com.quickbill.app.printing.PrintDocument
 import com.quickbill.app.printing.ThermalPrinting
 import kotlinx.coroutines.CancellationException
@@ -27,6 +29,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.receiveAsFlow
@@ -45,7 +48,7 @@ data class QuickBillUiState(
 
 internal sealed interface BillEvent {
     data class Print(val document: PrintDocument) : BillEvent
-    data class Share(val text: String) : BillEvent
+    data class Share(val text: String, @param:StringRes val title: Int = R.string.share_bill_title) : BillEvent
     data class Message(@param:StringRes val message: Int) : BillEvent
 }
 
@@ -60,6 +63,11 @@ class QuickBillViewModel(application: Application) : AndroidViewModel(applicatio
 
     internal val events = eventChannel.receiveAsFlow()
     val history = repository.history
+    val customers = repository.customers
+    val creditCustomers = repository.creditCustomers
+
+    fun observeCustomerLedger(customerId: Long) = repository.observeCustomerLedger(customerId)
+
     @OptIn(ExperimentalCoroutinesApi::class)
     val dailySales = flow {
         while (true) {
@@ -158,21 +166,21 @@ class QuickBillViewModel(application: Application) : AndroidViewModel(applicatio
         if (!isSavingBill.value) calculator.value = calculator.value.press(key)
     }
 
-    fun printCurrentBill() = saveAndPrint(lines.value) {
+    fun printCurrentBill(customerId: Long?) = saveAndPrint(lines.value, customerId) {
         lines.value = emptyList()
     }
 
-    fun printCalculatorBill() = saveAndPrint(calculator.value.toSaleLines()) {
+    fun printCalculatorBill(customerId: Long?) = saveAndPrint(calculator.value.toSaleLines(), customerId) {
         calculator.value = CalculatorDraft()
     }
 
-    private fun saveAndPrint(checkoutLines: List<SaleLine>, clearDraft: () -> Unit) {
+    private fun saveAndPrint(checkoutLines: List<SaleLine>, customerId: Long?, clearDraft: () -> Unit) {
         if (checkoutLines.isEmpty() || isSavingBill.value || thermalPrinting.busy) return
         isSavingBill.value = true
         viewModelScope.launch {
             try {
                 val bill = runAction(R.string.bill_save_failed) {
-                    repository.saveBill(checkoutLines)
+                    repository.saveBill(checkoutLines, customerId)
                 } ?: return@launch
                 clearDraft()
                 eventChannel.send(BillEvent.Print(PrintDocument.Receipt(bill)))
@@ -208,6 +216,42 @@ class QuickBillViewModel(application: Application) : AndroidViewModel(applicatio
             val shop = runAction(R.string.bill_open_failed) { checkNotNull(repository.getShop()) }
                 ?: return@launch
             eventChannel.send(BillEvent.Share(BillText.draft(shop, System.currentTimeMillis(), draft)))
+        }
+    }
+
+    fun addCustomer(name: String, phone: String?, onComplete: (Customer?) -> Unit) {
+        viewModelScope.launch {
+            val customer = runAction(R.string.customer_save_failed) { repository.addCustomer(name, phone) }
+            onComplete(customer)
+        }
+    }
+
+    fun editCustomer(id: Long, name: String, phone: String?, onComplete: (Boolean) -> Unit) {
+        viewModelScope.launch {
+            val saved = runAction(R.string.customer_save_failed) {
+                repository.updateCustomer(id, name, phone)
+            } != null
+            onComplete(saved)
+        }
+    }
+
+    fun addPayment(customerId: Long, amountPaisa: Long, onComplete: (Boolean) -> Unit) {
+        viewModelScope.launch {
+            val saved = runAction(R.string.payment_save_failed) {
+                repository.addPayment(customerId, amountPaisa)
+            } != null
+            onComplete(saved)
+        }
+    }
+
+    fun shareLedger(customerId: Long) {
+        viewModelScope.launch {
+            val text = runAction(R.string.khata_open_failed) {
+                val ledger = checkNotNull(repository.observeCustomerLedger(customerId).first())
+                val shopName = repository.getShop()?.name ?: getApplication<Application>().getString(R.string.app_name)
+                LedgerText.reminder(shopName, ledger)
+            } ?: return@launch
+            eventChannel.send(BillEvent.Share(text, R.string.share_khata_title))
         }
     }
 

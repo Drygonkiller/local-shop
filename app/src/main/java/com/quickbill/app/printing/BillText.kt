@@ -14,6 +14,7 @@ internal object BillText {
     fun pan(pan: String) = "PAN / प्यान $pan"
     fun number(billNumber: Long) = "Bill no. / बिल नं. $billNumber"
     fun date(value: String) = "Date / मिति $value"
+    fun udharo(name: String) = "Udharo / उधारो: $name"
     fun inWords(totalPaisa: Long) = "$InWords: ${formatNprInWords(totalPaisa)}"
 
     fun quantityAndUnitPrice(quantity: Int, unitPricePaisa: Long) =
@@ -21,7 +22,8 @@ internal object BillText {
 
     fun saved(receipt: SavedBill): String = buildString {
         val bill = receipt.bill
-        appendHeader(bill.shopName, bill.shopPan, number(bill.billNumber), bill.createdAtMillis)
+        val customerName = if (bill.customerId != null) bill.customerName else null
+        appendHeader(bill.shopName, bill.shopPan, number(bill.billNumber), bill.createdAtMillis, customerName)
         for (line in receipt.lines) {
             appendItem(line.name, line.quantity, line.unitPricePaisa, line.totalPaisa)
         }
@@ -37,11 +39,18 @@ internal object BillText {
         appendTotal(totalPaisa(lines))
     }
 
-    private fun StringBuilder.appendHeader(shopName: String, shopPan: String, number: String, millis: Long) {
+    private fun StringBuilder.appendHeader(
+        shopName: String,
+        shopPan: String,
+        number: String,
+        millis: Long,
+        customerName: String? = null,
+    ) {
         appendLine(shopName)
         appendLine(pan(shopPan))
         appendLine(number)
         appendLine(date(formatNepalDualDateTime(millis)))
+        customerName?.let { appendLine(udharo(it)) }
         appendLine()
     }
 

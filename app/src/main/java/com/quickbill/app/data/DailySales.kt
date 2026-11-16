@@ -13,6 +13,11 @@ data class DailySales(
     val topItems: List<TopFavourite>,
 ) {
     val billCount: Int get() = bills.size
+    private val udharoBills = bills.filter { it.customerId != null }
+    val udharoBillCount: Int get() = udharoBills.size
+    val udharoTotalPaisa: BigInteger = udharoBills.fold(BigInteger.ZERO) { sum, bill ->
+        sum + bill.totalPaisa.toBigInteger()
+    }
 }
 
 data class TopFavourite(val favouriteId: Long, val name: String, val totalPaisa: BigInteger)

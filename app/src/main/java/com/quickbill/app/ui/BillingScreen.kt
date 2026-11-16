@@ -317,6 +317,9 @@ internal fun SavedBillScreen(
                             text = BillText.date(formatNepalDualDateTime(header.createdAtMillis)),
                             style = MaterialTheme.typography.bodyMedium,
                         )
+                        if (header.customerId != null) {
+                            header.customerName?.let { Text(BillText.udharo(it), fontWeight = FontWeight.SemiBold) }
+                        }
                         HorizontalDivider(Modifier.padding(vertical = 4.dp), color = scheme.outlineVariant)
                         Row(
                             horizontalArrangement = Arrangement.spacedBy(12.dp),

@@ -9,22 +9,49 @@ import androidx.room.Room
 import androidx.room.RoomDatabase
 import androidx.room.Transaction
 import androidx.room.Upsert
+import androidx.room.migration.Migration
+import androidx.sqlite.db.SupportSQLiteDatabase
 import kotlinx.coroutines.flow.Flow
 
 @Database(
-    entities = [FavouriteItem::class, ShopDetails::class, Bill::class, BillLine::class],
-    version = 1,
+    entities = [FavouriteItem::class, ShopDetails::class, Bill::class, BillLine::class, Customer::class, Payment::class],
+    version = 2,
     exportSchema = true,
 )
 abstract class QuickBillDatabase : RoomDatabase() {
     abstract fun dao(): QuickBillDao
 
     companion object {
+        val MIGRATION_1_2 = object : Migration(1, 2) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    """CREATE TABLE `customers` (
+                        `id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                        `name` TEXT NOT NULL,
+                        `phone` TEXT
+                    )""".trimIndent(),
+                )
+                db.execSQL("ALTER TABLE `bills` ADD COLUMN `customerId` INTEGER REFERENCES `customers` (`id`)")
+                db.execSQL("ALTER TABLE `bills` ADD COLUMN `customerName` TEXT")
+                db.execSQL("CREATE INDEX `index_bills_customerId` ON `bills` (`customerId`)")
+                db.execSQL(
+                    """CREATE TABLE `payments` (
+                        `id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                        `customerId` INTEGER NOT NULL,
+                        `amountPaisa` INTEGER NOT NULL,
+                        `createdAtMillis` INTEGER NOT NULL,
+                        FOREIGN KEY (`customerId`) REFERENCES `customers` (`id`) ON UPDATE NO ACTION ON DELETE NO ACTION
+                    )""".trimIndent(),
+                )
+                db.execSQL("CREATE INDEX `index_payments_customerId` ON `payments` (`customerId`)")
+            }
+        }
+
         fun create(context: Context): QuickBillDatabase = Room.databaseBuilder(
             context.applicationContext,
             QuickBillDatabase::class.java,
             "quick-bill.db",
-        ).build()
+        ).addMigrations(MIGRATION_1_2).build()
     }
 }
 
@@ -75,4 +102,28 @@ interface QuickBillDao {
 
     @Insert
     suspend fun insertBillLines(lines: List<BillLine>)
+
+    @Insert
+    suspend fun insertCustomer(customer: Customer): Long
+
+    @Query("UPDATE customers SET name = :name, phone = :phone WHERE id = :id")
+    suspend fun updateCustomer(id: Long, name: String, phone: String?): Int
+
+    @Query("SELECT * FROM customers WHERE id = :id")
+    suspend fun getCustomer(id: Long): Customer?
+
+    @Transaction
+    @Query("SELECT * FROM customers")
+    fun observeCustomerCredit(): Flow<List<CustomerCreditRows>>
+
+    @Transaction
+    @Query("SELECT * FROM customers WHERE id = :id")
+    fun observeCustomerCredit(id: Long): Flow<CustomerCreditRows?>
+
+    @Transaction
+    @Query("SELECT * FROM customers WHERE id = :id")
+    suspend fun getCustomerCredit(id: Long): CustomerCreditRows?
+
+    @Insert
+    suspend fun insertPayment(payment: Payment): Long
 }

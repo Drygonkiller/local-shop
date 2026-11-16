@@ -10,6 +10,9 @@
     <string name="report_bill_count_ne">बिल</string>
     <string name="report_average_bill">Average bill</string>
     <string name="report_average_bill_ne">औसत बिल</string>
+    <string name="report_udharo">Udharo today</string>
+    <string name="report_udharo_ne">आजको उधारो</string>
+    <string name="report_udharo_count">%1$d bills / %1$d बिल</string>
     <string name="report_top_items">Top items by revenue</string>
     <string name="report_top_items_ne">बिक्री रकमअनुसार शीर्ष सामान</string>
     <string name="report_no_top_items">No favourite items sold</string>

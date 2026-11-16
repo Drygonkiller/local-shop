@@ -20,6 +20,27 @@ class DailySalesTest {
     }
 
     @Test
+    fun `credit sales stay in the totals and have a separate Nepal-day subtotal`() {
+        val older = sale(1, day.startMillis - 1, 5_000L)
+        val cash = sale(2, day.startMillis, 1_250L)
+        val credit = sale(3, day.endMillis - 1, 2_001L)
+        val report = summarizeDailySales(
+            day,
+            listOf(
+                older.copy(bill = older.bill.copy(customerId = 7, customerName = "Customer")),
+                cash,
+                credit.copy(bill = credit.bill.copy(customerId = 7, customerName = "Customer")),
+            ),
+        )
+
+        assertEquals(2, report.billCount)
+        assertEquals(3_251L.toBigInteger(), report.totalPaisa)
+        assertEquals(1_626L, report.averagePaisa)
+        assertEquals(1, report.udharoBillCount)
+        assertEquals(2_001L.toBigInteger(), report.udharoTotalPaisa)
+    }
+
+    @Test
     fun `yesterday and tomorrow are excluded from the day's report`() {
         val yesterday = sale(1, day.startMillis - 1, 500L, line(1, "Yesterday's item", 500))
         val today = sale(2, day.startMillis, 200L, line(2, "Today's item", 200))

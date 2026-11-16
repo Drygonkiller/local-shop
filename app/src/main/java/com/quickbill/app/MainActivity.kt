@@ -38,7 +38,7 @@ class MainActivity : ComponentActivity() {
                                 )
                             }
                         }
-                        is BillEvent.Share -> shareBill(event.text)
+                        is BillEvent.Share -> shareText(event.text, event.title)
                         is BillEvent.Message -> showMessage(event.message)
                     }
                 }
@@ -51,6 +51,9 @@ class MainActivity : ComponentActivity() {
                     state = viewModel.state.collectAsStateWithLifecycle().value,
                     history = viewModel.history,
                     dailySales = viewModel.dailySales,
+                    customers = viewModel.customers,
+                    creditCustomers = viewModel.creditCustomers,
+                    observeCustomerLedger = viewModel::observeCustomerLedger,
                     thermalPrinting = viewModel.thermalPrinting,
                     onAddFavorite = viewModel::addFavourite,
                     onEditFavourite = viewModel::editFavourite,
@@ -67,6 +70,10 @@ class MainActivity : ComponentActivity() {
                     onShareDraftBill = viewModel::shareDraftBill,
                     onPrintReport = viewModel::printReport,
                     onSetPhoto = viewModel::setFavouritePhoto,
+                    onAddCustomer = viewModel::addCustomer,
+                    onEditCustomer = viewModel::editCustomer,
+                    onAddPayment = viewModel::addPayment,
+                    onShareLedger = viewModel::shareLedger,
                 )
             }
         }
@@ -81,12 +88,12 @@ class MainActivity : ComponentActivity() {
         Toast.makeText(this, message, Toast.LENGTH_LONG).show()
     }
 
-    private fun shareBill(text: String) {
+    private fun shareText(text: String, title: Int) {
         val send = Intent(Intent.ACTION_SEND)
             .setType("text/plain")
             .putExtra(Intent.EXTRA_TEXT, text)
         try {
-            startActivity(Intent.createChooser(send, getString(R.string.share_bill_title)))
+            startActivity(Intent.createChooser(send, getString(title)))
         } catch (_: ActivityNotFoundException) {
             showMessage(R.string.share_unavailable)
         }

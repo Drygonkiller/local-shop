@@ -55,17 +55,19 @@ internal class ReceiptLayout(
         pages = if (paperHeight == null) listOf(rows) else paginate(rows, paperHeight)
     }
 
-    private fun receiptHeader(document: PrintDocument.Receipt): List<StaticLayout> {
+    private fun receiptHeader(document: PrintDocument.Receipt): List<StaticLayout> = buildList {
         val bill = document.bill.bill
-        return listOf(
-            text(bill.shopName, titleStyle, alignment = Layout.Alignment.ALIGN_CENTER),
-            text(BillText.pan(bill.shopPan), detailStyle),
-            text(
-                if (document.isTest) "Test receipt / परीक्षण बिल" else BillText.number(bill.billNumber),
-                if (document.isTest) amountStyle else detailStyle,
-            ),
-            text(BillText.date(formatNepalDualDateTime(bill.createdAtMillis)), detailStyle),
-        )
+        add(text(bill.shopName, titleStyle, alignment = Layout.Alignment.ALIGN_CENTER))
+        add(text(BillText.pan(bill.shopPan), detailStyle))
+        if (document.isTest) {
+            add(text("Test receipt / परीक्षण बिल", amountStyle))
+        } else {
+            add(text(BillText.number(bill.billNumber), detailStyle))
+        }
+        add(text(BillText.date(formatNepalDualDateTime(bill.createdAtMillis)), detailStyle))
+        if (!document.isTest && bill.customerId != null) {
+            bill.customerName?.let { add(text(BillText.udharo(it), amountStyle)) }
+        }
     }
 
     private fun receiptRows(
@@ -109,6 +111,13 @@ internal class ReceiptLayout(
         add(ReceiptRow(body = columns("Total sales / कुल बिक्री", totalStyle, formatNpr(report.totalPaisa), totalStyle)))
         add(ReceiptRow(body = columns("Bills / बिल", nameStyle, report.billCount.toString(), amountStyle)))
         add(ReceiptRow(body = columns("Average bill / औसत बिल", nameStyle, formatNpr(report.averagePaisa), amountStyle)))
+        add(ReceiptRow(
+            title = text("Udharo today / आजको उधारो", nameStyle),
+            body = columns(
+                "${report.udharoBillCount} bills / ${report.udharoBillCount} बिल", detailStyle,
+                formatNpr(report.udharoTotalPaisa), amountStyle,
+            ),
+        ))
 
         add(sectionHeading("Top items by revenue / बिक्री रकमअनुसार शीर्ष सामान"))
         if (report.topItems.isEmpty()) {

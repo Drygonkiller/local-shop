@@ -7,6 +7,8 @@ import com.quickbill.app.data.SavedBill
 import com.quickbill.app.data.ShopDetails
 import java.time.Instant
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class BillTextTest {
@@ -31,6 +33,26 @@ class BillTextTest {
             """.trimIndent(),
             BillText.saved(SavedBill(bill, listOf(line))),
         )
+    }
+
+    @Test
+    fun `sharing an udharo receipt names the customer on the saved bill`() {
+        val bill = Bill(
+            billNumber = 8,
+            shopName = "Test shop",
+            shopPan = "123456789",
+            createdAtMillis = 0,
+            totalPaisa = 2_450,
+            customerId = 1,
+            customerName = "माया श्रेष्ठ",
+        )
+        val line = BillLine(8, 0, 1, "चिया", 1_225L, 2)
+
+        val text = BillText.saved(SavedBill(bill, listOf(line)))
+
+        assertEquals("Udharo / उधारो: माया श्रेष्ठ", text.lines()[4])
+        assertTrue(text.endsWith("In words / अक्षरमा: Twenty-four rupees and fifty paisa only"))
+        assertFalse(BillText.saved(SavedBill(bill.copy(customerId = null), listOf(line))).contains("Udharo / उधारो"))
     }
 
     @Test

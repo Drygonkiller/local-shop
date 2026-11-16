@@ -29,6 +29,10 @@ Receipts, saved bills, shared bills, and daily report dates show the Bikram Samb
 
 Printed, shared, and saved bills show the total in English words using lakh and crore. Quick Bill derives both displays from the stored timestamp and paisa total.
 
+## Udharo khata
+
+Tap **Udharo** beside **Print bill** and choose or add a customer. Quick Bill saves and prints a credit bill with that customer's name. Open **Khata** to see outstanding balances, record a payment, or open the share sheet with a plain-text payment reminder. The **Today** report includes credit sales in its sales total and shows them on their own line as well.
+
 ## Set up a thermal printer
 
 1. Pair a 58 mm Classic Bluetooth ESC/POS printer in Android settings. Quick Bill uses the Serial Port Profile and a 384-dot print width.

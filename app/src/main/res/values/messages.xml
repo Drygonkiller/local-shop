@@ -9,4 +9,8 @@
     <string name="bill_open_failed">Could not open bill.\nबिल खोल्न सकिएन।</string>
     <string name="report_print_unavailable">Could not print report.\nप्रतिवेदन छाप्न सकिएन।</string>
     <string name="share_unavailable">Could not open sharing.\nसाझा गर्ने विकल्प खोल्न सकिएन।</string>
+    <string name="customer_save_failed">Could not save customer.\nग्राहक सुरक्षित गर्न सकिएन।</string>
+    <string name="payment_save_failed">Could not record payment. Check the current balance and try again.\nभुक्तानी दर्ता गर्न सकिएन। हालको बाँकी रकम हेरेर फेरि प्रयास गर्नुहोस्।</string>
+    <string name="khata_open_failed">Could not open customer khata.\nग्राहकको खाता खोल्न सकिएन।</string>
+    <string name="share_khata_title">Share khata / खाता साझा गर्नुहोस्</string>
 </resources>

@@ -2,6 +2,7 @@ package com.quickbill.app.data
 
 import androidx.room.Entity
 import androidx.room.ForeignKey
+import androidx.room.Index
 import androidx.room.PrimaryKey
 
 @Entity(tableName = "favourites")
@@ -20,13 +21,38 @@ data class ShopDetails(
     @PrimaryKey val id: Int = 1,
 )
 
-@Entity(tableName = "bills")
+@Entity(tableName = "customers")
+data class Customer(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val name: String,
+    val phone: String? = null,
+)
+
+@Entity(
+    tableName = "payments",
+    indices = [Index("customerId")],
+    foreignKeys = [ForeignKey(entity = Customer::class, parentColumns = ["id"], childColumns = ["customerId"])],
+)
+data class Payment(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val customerId: Long,
+    val amountPaisa: Long,
+    val createdAtMillis: Long,
+)
+
+@Entity(
+    tableName = "bills",
+    indices = [Index("customerId")],
+    foreignKeys = [ForeignKey(entity = Customer::class, parentColumns = ["id"], childColumns = ["customerId"])],
+)
 data class Bill(
     @PrimaryKey(autoGenerate = true) val billNumber: Long = 0,
     val shopName: String,
     val shopPan: String,
     val createdAtMillis: Long,
     val totalPaisa: Long,
+    val customerId: Long? = null,
+    val customerName: String? = null,
 )
 
 @Entity(

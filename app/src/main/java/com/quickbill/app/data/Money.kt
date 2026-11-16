@@ -11,15 +11,15 @@ const val MAX_QUANTITY = 9_999
 private val amountPattern = Regex("""(?:[0-9]+(?:\.[0-9]{0,2})?|\.[0-9]{1,2})""")
 private val panPattern = Regex("[0-9]{9}")
 
-fun parseNpr(input: String): Long? {
+fun parseNpr(input: String, maxPaisa: Long = MAX_PRICE_PAISA): Long? {
     val amount = input.trim().withAsciiDigits()
     if (!amountPattern.matches(amount)) return null
 
     val rupees = amount.substringBefore('.').ifEmpty { "0" }.toLongOrNull() ?: return null
-    if (rupees > MAX_PRICE_PAISA / 100) return null
-
     val paisa = amount.substringAfter('.', "").padEnd(2, '0').toLong()
-    return (rupees * 100 + paisa).takeIf { it <= MAX_PRICE_PAISA }
+    val maxRupees = maxPaisa / 100
+    if (rupees > maxRupees || (rupees == maxRupees && paisa > maxPaisa % 100)) return null
+    return rupees * 100 + paisa
 }
 
 fun formatNpr(paisa: Long): String = formatRupees(BigDecimal.valueOf(paisa, 2))

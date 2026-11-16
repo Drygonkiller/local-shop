@@ -173,6 +173,37 @@ private fun DailySalesSummary(report: DailySales) {
                 }
             }
         }
+        Surface(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(14.dp),
+            color = scheme.surface,
+            border = BorderStroke(1.dp, scheme.outlineVariant),
+        ) {
+            Row(
+                modifier = Modifier.padding(12.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                BilingualLabel(
+                    R.string.report_udharo,
+                    R.string.report_udharo_ne,
+                    modifier = Modifier.weight(1f),
+                )
+                Column(horizontalAlignment = Alignment.End, modifier = Modifier.weight(1f)) {
+                    Text(
+                        formatNpr(report.udharoTotalPaisa),
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        textAlign = TextAlign.End,
+                    )
+                    Text(
+                        stringResource(R.string.report_udharo_count, report.udharoBillCount),
+                        style = MaterialTheme.typography.bodySmall,
+                        textAlign = TextAlign.End,
+                    )
+                }
+            }
+        }
     }
 }
 
