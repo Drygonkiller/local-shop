@@ -1,0 +1,225 @@
+.mg-view {
+    display: grid;
+    gap: 16px;
+    color: var(--ink, #162f26);
+}
+
+.mg-heading,
+.mg-actions,
+.mg-record-row,
+.mg-item-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.mg-heading,
+.mg-record-row,
+.mg-item-row {
+    justify-content: space-between;
+}
+
+.mg-heading { align-items: flex-start; }
+
+.mg-title,
+.mg-subtitle,
+.mg-dialog-title {
+    margin: 0;
+    line-height: 1.16;
+    letter-spacing: -.015em;
+}
+
+.mg-title { font-size: clamp(1.65rem, 5vw, 2.15rem); }
+.mg-subtitle, .mg-dialog-title { font-size: 1.2rem; }
+.mg-lang-en, .mg-lang-ne { display: block; }
+.mg-lang-ne { font-size: .78em; line-height: 1.32; margin-block-start: 3px; }
+.mg-title > .mg-lang-ne, .mg-subtitle > .mg-lang-ne, .mg-dialog-title > .mg-lang-ne {
+    color: var(--muted, #4c655a);
+    font-weight: 600;
+}
+
+.mg-actions {
+    flex-wrap: wrap;
+}
+
+.mg-button {
+    text-align: center;
+    min-block-size: 52px;
+    line-height: 1.15;
+    padding: 7px 14px;
+    border: 1px solid var(--line, #cbd9d0);
+    border-radius: 12px;
+    background: var(--panel, #fff);
+    color: var(--accent, #185a46);
+    font: inherit;
+    font-weight: 670;
+    cursor: pointer;
+}
+
+.mg-button.primary {
+    background: var(--accent, #185a46);
+    color: #fff;
+    border-color: transparent;
+}
+
+.mg-button.danger {
+    color: var(--danger, #a32a31);
+    border-color: color-mix(in srgb, var(--danger, #a32a31), #fff 75%);
+}
+
+.mg-button:disabled { opacity: .52; cursor: default; }
+.mg-button:focus-visible,
+.mg-record-open:focus-visible {
+    outline: 2px solid var(--accent, #185a46);
+    outline-offset: 2px;
+}
+
+.mg-heading .mg-button { flex-shrink: 0; }
+
+.mg-list,
+.mg-form,
+.mg-shop-form,
+.mg-report-content,
+.mg-field {
+    display: grid;
+    gap: 12px;
+}
+
+.mg-record,
+.mg-card,
+.mg-empty {
+    background: var(--panel, #fff);
+    border: 1px solid var(--line, #cbd9d0);
+    border-radius: 14px;
+}
+
+.mg-record-open {
+    width: 100%;
+    padding: 0;
+    border: 0;
+    border-radius: inherit;
+    background: transparent;
+    color: inherit;
+    text-align: start;
+    font: inherit;
+    cursor: pointer;
+}
+
+.mg-record-row { padding: 14px; min-block-size: 66px; }
+.mg-record-content { display: grid; min-width: 0; gap: 4px; overflow-wrap: anywhere; }
+.mg-record-amount { flex: 0 0 auto; color: var(--accent, #185a46); white-space: nowrap; }
+.mg-record-actions { padding: 0 14px 14px; gap: 8px; }
+.mg-record-actions .mg-button { min-block-size: 48px; }
+.mg-card, .mg-empty { padding: 16px; }
+.mg-empty { margin: 0; color: var(--muted, #4c655a); }
+.mg-card h2, .mg-card p { margin: 0; }
+.mg-meta, .mg-date { color: var(--muted, #4c655a); font-size: .88rem; }
+.mg-date { margin: -5px 0 2px; }
+.mg-advance { color: var(--accent, #185a46); font-weight: 680; }
+
+.mg-field { gap: 6px; }
+.mg-field-label { font-weight: 680; }
+.mg-field-label .mg-lang-ne { color: var(--muted, #4c655a); font-weight: 560; }
+
+.mg-input {
+    box-sizing: border-box;
+    inline-size: 100%;
+    min-block-size: 50px;
+    padding: 10px 12px;
+    border: 1px solid var(--line, #cbd9d0);
+    border-radius: 10px;
+    color: var(--ink, #162f26);
+    background: var(--panel, #fff);
+    font: inherit;
+    font-size: max(1rem, 16px);
+}
+
+.mg-input:focus {
+    outline: 2px solid var(--accent, #185a46);
+    outline-offset: -2px;
+}
+
+.mg-shop-form { max-inline-size: 520px; gap: 16px; }
+.mg-error { color: var(--danger, #a32a31); font-size: .9rem; margin: 0; }
+
+.mg-stats {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+}
+
+.mg-stat {
+    display: grid;
+    gap: 5px;
+    min-width: 0;
+    padding: 14px;
+    background: var(--panel, #fff);
+    border: 1px solid var(--line, #cbd9d0);
+    border-radius: 12px;
+}
+
+.mg-stat-primary { grid-column: 1 / -1; background: var(--accent-soft, #e5f1e9); }
+.mg-stat-credit { grid-column: 1 / -1; }
+.mg-stat-label { font-weight: 600; color: var(--muted, #4c655a); }
+.mg-stat-value { font-size: 1.35rem; color: var(--accent, #185a46); overflow-wrap: anywhere; }
+.mg-stat-primary .mg-stat-value, .mg-khata-summary .mg-stat-value { font-size: clamp(1.9rem, 7vw, 2.5rem); }
+
+.mg-item-row { padding-block: 11px 0; overflow-wrap: anywhere; }
+.mg-item-row strong { white-space: nowrap; }
+.mg-khata-summary { display: grid; gap: 10px; background: var(--accent-soft, #e5f1e9); }
+.mg-khata-summary .mg-stat, .mg-stat-row { background: transparent; border: 0; padding: 0; }
+.mg-stat-row { text-align: end; }
+.mg-stat-row .mg-stat-value { font-size: 1.12rem; }
+
+.mg-dialog {
+    box-sizing: border-box;
+    inline-size: min(440px, calc(100% - 28px));
+    max-block-size: calc(100% - 28px);
+    overflow: auto;
+    border: 1px solid var(--line, #cbd9d0);
+    border-radius: 16px;
+    padding: 20px;
+    background: var(--panel, #fff);
+    color: var(--ink, #162f26);
+}
+
+.mg-dialog::backdrop { background: rgb(15 30 23 / .48); }
+.mg-form { gap: 14px; }
+.mg-form p { margin: 0; }
+.mg-form .mg-actions { justify-content: flex-end; }
+
+.mg-print-sheet { display: none; }
+
+@media (min-width: 640px) {
+    .mg-stats { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+    .mg-stat-primary, .mg-stat-credit { grid-column: auto; }
+    .mg-stat-primary .mg-stat-value { font-size: clamp(1.45rem, 3vw, 2rem); }
+}
+
+@media (max-width: 375px) {
+    .mg-heading { gap: 8px; }
+    .mg-heading .mg-button { padding-inline: 8px; }
+    .mg-record-row { gap: 8px; padding-inline: 12px; }
+    .mg-record-actions { padding-inline: 12px; }
+    .mg-actions .mg-button { padding-inline: 9px; }
+}
+
+@page quickbill-report { size: A4; margin: 12mm; }
+
+@media print {
+    body.printing-report > :not(#qb-print-report) { display: none !important; }
+    body.printing-report { display: block !important; margin: 0 !important; background: #fff !important; }
+    #qb-print-report {
+        display: block !important;
+        page: quickbill-report;
+        color: #000;
+    }
+    #qb-print-report .mg-record,
+    #qb-print-report .mg-stat { break-inside: avoid; }
+    #qb-print-report .mg-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    #qb-print-report .mg-stat,
+    #qb-print-report .mg-record,
+    #qb-print-report .mg-card,
+    #qb-print-report .mg-stat-value,
+    #qb-print-report .mg-record-amount { background: #fff; color: #000; }
+}

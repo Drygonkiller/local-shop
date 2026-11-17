@@ -1,8 +1,22 @@
 # Quick Bill
 
-An offline Android app for small shops in Nepal. It uses Kotlin, Jetpack Compose, a ViewModel, and Room.
+Quick Bill is an offline billing app for small shops in Nepal. The native Android app uses Kotlin, Jetpack Compose, and Room. The installable web app runs in Safari on iPhone and Chrome on Android.
 
-## Run the app
+## Web app
+
+With Node.js installed, run `node web/serve.mjs` from this folder and open `http://127.0.0.1:4173/`. The web app has no build step. For use on phones, serve the contents of `web/dist` over HTTPS.
+
+To deploy with Vercel, import this GitHub repository and keep the Root Directory at the repository root. The included `vercel.json` serves `web/dist` without a build command. Use the resulting HTTPS URL on your phone.
+
+- **iPhone** · Open the HTTPS link in Safari. Tap **Share → Add to Home Screen**, enable **Open as Web App**, then tap **Add**.
+- **Android** · Open the HTTPS link in Chrome and select **Install app** or **Add to Home screen**.
+- **Offline** · Open the web app once while connected. A service worker caches the app, and IndexedDB stores that browser's shop, items, bills, customers and payments. The web app uses its own local data, separate from Room and from other devices.
+- **Printing and sharing** · Open a saved bill and use **Print bill**, **Share PDF**, or **Share text**. The web app uses the browser's print dialog and offers downloads or clipboard sharing when the system share sheet is unavailable. The native Android app supports direct printing to paired Classic Bluetooth ESC/POS printers.
+- **Customer names** · Enter an optional name under **Current bill** to include it on a paid bill. History accepts either a bill number or a customer's name. Udharo bills use the customer selected from Khata.
+
+Run the web tests with `node --test web/tests/*.test.mjs`.
+
+## Run the native Android app
 
 Open this folder in Android Studio with JDK 17 and Android SDK 36 installed. Sync Gradle, then run the `app` configuration on a device or emulator running Android 6.0 or newer. The first build downloads dependencies.
 

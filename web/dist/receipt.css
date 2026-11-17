@@ -1,0 +1,26 @@
+@font-face {
+  font-family: "Quick Bill Devanagari";
+  src: url("./fonts/noto-sans-devanagari.woff2") format("woff2");
+  font-style: normal;
+  font-weight: 400 700;
+  font-display: swap;
+}
+.receipt-paper {
+  background: white;
+  color: #142019;
+  padding: clamp(17px, 5vw, 34px);
+  box-shadow: 0 3px 15px #203c3020;
+  overflow-wrap: anywhere;
+}
+.receipt-paper > :first-child { margin-top: 0; }
+.receipt-heading { font-size: clamp(1.22rem, 4.5vw, 1.74rem); text-align: center; color: #101814; }
+.receipt-meta { font-size: .91em; line-height: 1.55; }
+.receipt-divider { border: 0; border-top: 1px solid #64776c; margin: 10px 0; }
+.receipt-line { margin: 0 0 9px; break-inside: avoid; }
+.receipt-pair { display: flex; align-items: baseline; justify-content: space-between; gap: 14px; }
+.receipt-pair > :last-child { text-align: right; }
+.receipt-total { font-size: 1.12em; margin-top: 8px; font-weight: 750; }
+.receipt-words { margin-top: 9px; }
+@media print {
+  .receipt-paper { box-shadow: none; font-size: 10pt; }
+}

@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#f4f5ed">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="description" content="Quick Bill. Offline billing and khata for shops in Nepal.">
+  <title>Quick Bill · छिटो बिल</title>
+  <link rel="manifest" href="./manifest.webmanifest">
+  <link rel="icon" href="./icons/icon-192.png" type="image/png">
+  <link rel="apple-touch-icon" href="./icons/icon-180.png">
+  <link rel="stylesheet" href="./styles.css">
+  <link rel="stylesheet" href="./receipt.css">
+  <link rel="stylesheet" href="./manage.css">
+  <script type="module" src="./app.js"></script>
+</head>
+<body>
+  <header class="topbar">
+    <div class="bar-inner">
+      <button class="brand" type="button" data-view="favourites" aria-label="Quick Bill home / छिटो बिल गृह">
+        <img src="./icons/icon-192.png" width="45" height="45" alt="">
+        <span><strong>Quick Bill</strong><small lang="ne">छिटो बिल</small></span>
+      </button>
+      <div class="nav-tools">
+        <span class="connection" id="connection" aria-live="polite"></span>
+        <button class="tool-button" type="button" id="install-button"><strong>Install</strong><small lang="ne">स्थापना</small></button>
+        <button class="tool-button" type="button" data-view="history"><strong>History</strong><small lang="ne">बिल सूची</small></button>
+        <button class="tool-button" type="button" data-view="shop"><strong>Shop</strong><small lang="ne">पसल</small></button>
+      </div>
+    </div>
+  </header>
+  <nav class="tabs-wrap" aria-label="Quick Bill views / छिटो बिलका पाना">
+    <div class="tabs">
+      <button class="tab" type="button" data-view="favourites" aria-current="page"><strong>Favourites</strong><small lang="ne">मनपर्ने</small></button>
+      <button class="tab" type="button" data-view="calculator"><strong>Calculator</strong><small lang="ne">क्याल्कुलेटर</small></button>
+      <button class="tab" type="button" data-view="today"><strong>Today</strong><small lang="ne">आज</small></button>
+      <button class="tab" type="button" data-view="khata"><strong>Khata</strong><small lang="ne">खाता</small></button>
+    </div>
+  </nav>
+  <main id="view" class="app-main" tabindex="-1">
+    <p class="loading" role="status">Opening Quick Bill / छिटो बिल खुल्दैछ…</p>
+    <noscript><p>Turn on JavaScript to use Quick Bill. / छिटो बिल प्रयोग गर्न JavaScript खुला गर्नुहोस्।</p></noscript>
+  </main>
+  <dialog id="dialog" aria-labelledby="dialog-title"><div id="dialog-body" class="dialog-body"></div></dialog>
+  <p id="notice" class="notice" role="status" hidden></p>
+</body>
+</html>
