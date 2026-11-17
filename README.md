@@ -1,5 +1,7 @@
 # Quick Bill
 
+[Open Quick Bill on iPhone or Android](https://quick-bill-tawny.vercel.app/)
+
 Quick Bill is an offline billing app for small shops in Nepal. The native Android app uses Kotlin, Jetpack Compose, and Room. The installable web app runs in Safari on iPhone and Chrome on Android.
 
 ## Web app
